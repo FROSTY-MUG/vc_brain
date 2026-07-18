@@ -2,10 +2,10 @@
 
 import React, { useState } from "react";
 import { applications as defaultApps, outboundSignals } from "@/data/seed";
-import { Search, ArrowUpRight, ArrowDownRight, Minus, ExternalLink, Github, FileText, Zap, Globe, GraduationCap, Upload, Loader } from "lucide-react";
+import { Search, ArrowUpRight, ArrowDownRight, Minus, ExternalLink, Code, FileText, Zap, Globe, GraduationCap, Upload, Loader } from "lucide-react";
 
 const sourceIcons: Record<string, React.ReactNode> = {
-  "GitHub Trending": <Github size={14} className="text-white" />,
+  "GitHub Trending": <Code size={14} className="text-white" />,
   "arXiv": <FileText size={14} className="text-orange-400" />,
   "Product Hunt": <Zap size={14} className="text-orange-500" />,
   "Y Combinator W24": <GraduationCap size={14} className="text-orange-400" />,
