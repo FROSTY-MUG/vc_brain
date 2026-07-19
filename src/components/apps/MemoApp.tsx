@@ -194,8 +194,90 @@ function SwotSection({ swot }: { swot: Record<string, string[]> }) {
   );
 }
 
+const DILIGENCE_CATEGORIES = [
+  {
+    id: "financial",
+    title: "Financial",
+    desc: "In-depth review of financial statements, tax compliance, revenue streams, and liabilities to verify economic health.",
+    sources: [
+      "Income Statement (Q3 2023) [Source: Data Room]",
+      "Tax Returns (2022) [Source: IRS/Founders]",
+      "Revenue Projections [Source: Financial Model v2.xlsx]"
+    ]
+  },
+  {
+    id: "legal",
+    title: "Legal and Regulatory",
+    desc: "Examination of contracts, intellectual property, licensing, and any pending or potential litigation to avoid inheriting legal liabilities.",
+    sources: [
+      "IP Assignment Agreements [Source: Data Room - Legal]",
+      "Employment Contracts [Source: HR Portal]",
+      "Pending Litigation Search [Source: Public Records]"
+    ]
+  },
+  {
+    id: "operational",
+    title: "Operational",
+    desc: "Assessment of business models, production capabilities, supply chains, and logistical infrastructure.",
+    sources: [
+      "Supply Chain Contracts [Source: Data Room]",
+      "Logistics Infrastructure Report [Source: Operations Review]",
+      "SLA Agreements [Source: Customer Contracts]"
+    ]
+  },
+  {
+    id: "hr",
+    title: "Human Resources",
+    desc: "Evaluating a target company's workforce, including employee contracts, benefits, and pending workplace issues.",
+    sources: [
+      "Employee Benefits Package [Source: HR System]",
+      "Turnover Rate Data [Source: Q3 HR Report]",
+      "Workplace Issue Logs [Source: Compliance Officer]"
+    ]
+  },
+  {
+    id: "environmental",
+    title: "Environmental/Technical",
+    desc: "Reviewing ecological compliance, sustainability goals, and the condition of IT networks or physical properties.",
+    sources: [
+      "Sustainability Report 2023 [Source: Public ESG Filing]",
+      "IT Security Audit [Source: External Penetration Test]",
+      "Physical Property Inspection [Source: Surveyor Report]"
+    ]
+  }
+];
+
+function DiligenceCategoryBox({ category }: { category: typeof DILIGENCE_CATEGORIES[0] }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div 
+      className="bg-black/20 border border-white/10 rounded-lg p-3 cursor-pointer hover:bg-black/30 transition-colors" 
+      onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+    >
+      <div className="flex justify-between items-center">
+        <h4 className="text-sm font-semibold text-white/90">{category.title}</h4>
+        {expanded ? <ChevronUp size={14} className="text-white/40" /> : <ChevronDown size={14} className="text-white/40" />}
+      </div>
+      <p className="text-xs text-white/50 mt-1 line-clamp-2">{category.desc}</p>
+      {expanded && (
+        <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+          <p className="text-[10px] text-white/40 uppercase tracking-wider">Sources & Locations</p>
+          <ul className="space-y-1">
+            {category.sources.map((s, i) => (
+              <li key={i} className="text-xs text-white/70 flex items-start gap-1.5">
+                <span className="text-white/30">•</span> {s}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Recommendation banner */
 function RecommendationBanner({ rec }: { rec: Record<string, unknown> }) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const action = (rec?.action as string || "diligence").toLowerCase();
   const confidence = (rec?.confidence as string || "LOW");
   const reasoning = rec?.reasoning as string || "";
@@ -211,21 +293,30 @@ function RecommendationBanner({ rec }: { rec: Record<string, unknown> }) {
   const Icon = cfg.icon;
 
   return (
-    <div className={`${cfg.bg} border ${cfg.border} rounded-2xl p-5`}>
-      <div className="flex items-center gap-3 mb-3">
-        <Icon size={24} className={cfg.text} />
-        <div>
-          <p className={`text-xl font-black ${cfg.text} tracking-tight`}>{cfg.label}</p>
-          <p className="text-xs text-white/30">Confidence: {confidence}</p>
+    <div className={`${cfg.bg} border ${cfg.border} rounded-2xl p-5 transition-all duration-300`}>
+      <div 
+        className="flex items-center justify-between cursor-pointer group mb-3"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-3">
+          <Icon size={24} className={cfg.text} />
+          <div>
+            <p className={`text-xl font-black ${cfg.text} tracking-tight`}>{cfg.label}</p>
+            <p className="text-xs text-white/30">Confidence: {confidence}</p>
+          </div>
+        </div>
+        <div className="p-2 rounded-full bg-black/10 group-hover:bg-black/20 text-white/50 transition-colors">
+           {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
       </div>
+      
       {reasoning && (
         <p className="text-sm text-white/70 leading-relaxed mb-3">
           <CitedText text={reasoning} />
         </p>
       )}
       {openQs.length > 0 && (
-        <div>
+        <div className={isExpanded && action === "diligence" ? "mb-4" : ""}>
           <p className="text-xs text-white/40 uppercase tracking-wider mb-2 flex items-center gap-1">
             <HelpCircle size={11} /> Open Questions for Next Meeting
           </p>
@@ -236,6 +327,17 @@ function RecommendationBanner({ rec }: { rec: Record<string, unknown> }) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {isExpanded && action === "diligence" && (
+        <div className="mt-4 pt-4 border-t border-white/10">
+          <p className="text-xs text-white/40 uppercase tracking-wider mb-3">Due Diligence Analysis</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {DILIGENCE_CATEGORIES.map(cat => (
+              <DiligenceCategoryBox key={cat.id} category={cat} />
+            ))}
+          </div>
         </div>
       )}
     </div>
