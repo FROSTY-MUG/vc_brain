@@ -1,28 +1,25 @@
-# Project Architecture
+# How the Pieces Fit Together (Architecture)
 
-Cognis leverages a decoupled frontend/backend architecture designed for ultra-low latency and scalable data streaming.
+Imagine a restaurant. You have the dining room where customers sit (the Frontend), the kitchen where food is prepared (the Backend), and the giant pantry where ingredients are stored (the Database).
 
-## High-Level Topology
+Here is how our restaurant is set up:
 
-```
-[ Client Browser ]
+```text
+[ You (The Customer) ]
         |
         v
-[ Vercel Edge Network ] (Frontend Hosting)
+[ The Dining Room (Vercel) ] --- This is the visual website you see and click on.
         |
-        +---> /api/* (Next.js Edge Functions / Proxies)
-        |
-        v
-[ Railway Infrastructure ] (Backend Hosting)
-        |
-        +---> FastAPI (Python 3.12 Backend Server)
+        +---> The Waiter (API Routes) --- Carries your requests to the kitchen.
         |
         v
-[ Supabase ] (PostgreSQL & Storage)
+[ The Kitchen (Railway) ] --- This is where the heavy lifting and thinking happens.
+        |
+        v
+[ The Pantry (Supabase) ] --- This is where all the user profiles and messages are stored safely.
 ```
 
-## Key Architectural Decisions
-1. **Frontend-First Caching**: The UI immediately loads data from `localStorage` on mount to ensure sub-second rendering. Real-time background loops then silently fetch fresh data and overwrite the local cache, delivering an "instant-on" feel.
-2. **Reverse Proxying**: Because Next.js reserves `/api/` for its own serverless route handlers, all Python backend traffic is proxied via Next.js rewriting to `/py-api/`, abstracting CORS issues and ensuring a unified domain.
-3. **Decoupled Persistence**: Moved away from a local SQLite implementation to Supabase to support horizontal scaling across Vercel and Railway edge environments.
-4. **WebSocket Streaming**: Radar signals use WebSocket connections to maintain live telemetry without excessive HTTP overhead.
+## Why We Built It This Way
+1. **Speed is Everything**: Just like you want your food fast, we want the website to load instantly. We save a mini-copy of your data directly on your device (your browser) so the page appears the very second you open it.
+2. **The Waiter System**: Sometimes, security rules on the internet try to block the dining room from talking directly to the kitchen. We use a "Waiter" (a proxy) to safely pass notes back and forth without getting blocked.
+3. **The Big Pantry**: We use a professional storage system called Supabase. It’s like a massive, secure filing cabinet in the cloud that never runs out of space.

@@ -1,28 +1,22 @@
-# Agent Details & Data Pipelines
+# How We Find Startups (Agents & Pipelines)
 
-Cognis employs parallel AI agents and sourcing pipelines to ingest and score data at scale.
+Instead of humans spending hours Googling for new companies, we have built an army of "Digital Assistants" (called Agents) that do it for us automatically. 
 
-## Pipeline Architecture
+Here is how the assembly line works:
 
 ```text
-+-------------------+        +--------------------+        +---------------------+
-| External Sources  | -----> | Discovery Agents   | -----> | Raw Ingest Queue    |
-| (GitHub, X, Web)  |        | (Scrapers, Hooks)  |        | (Supabase/Memory)   |
-+-------------------+        +--------------------+        +---------------------+
-                                                                     |
-                                                                     v
-+-------------------+        +--------------------+        +---------------------+
-| Client Feed       | <----- | Scoring Agents     | <----- | Pipeline Processor  |
-| (React App)       |        | (LLMs, Heuristics) |        | (FastAPI Worker)    |
-+-------------------+        +--------------------+        +---------------------+
+[ The Internet ]        [ Our Digital Scouts ]        [ The Sorting Room ]
+(Twitter, News)  -----> (Scanning for clues)   -----> (Putting clues in boxes)
+                                                             |
+                                                             v
+[ Your Screen ]         [ The Graders ]               [ The Conveyor Belt ]
+(The final list) <----- (Giving a score 1-100) <----- (Moving the boxes)
 ```
 
-## Agent Responsibilities
-1. **Discovery Agents:** Responsible for identifying breakout repositories, stealth startup domain registrations, and viral founder tweets.
-2. **Scoring Agents:** Once a signal is ingested, these agents dynamically evaluate "Execution Velocity" and "Resilience History" against the investor's configured thesis alignment.
-3. **Synthesis Agents:** Responsible for extracting key metrics (Funding Needs, Equity Profiles, Tech Stacks) and standardizing them into a structured Pydantic model for frontend consumption.
+## Meet the Assistants
+1. **The Scouts (Discovery Agents):** These digital robots read the internet all day. If they see a smart engineer talking about a cool new project on a coding forum, they write it down.
+2. **The Graders (Scoring Agents):** Once a Scout finds a company, the Graders look at it and say, "Is this company any good?" They give it a score based on how fast the team moves and how good their ideas are.
+3. **The Organizers (Synthesis Agents):** Before the data goes to you, these assistants clean it up. They make sure the company name, what they do, and how much money they need are written neatly.
 
-## Background Data Synchronization
-The frontend ensures visual persistence of this pipeline activity by doing two things:
-1. Emitting background `setInterval` polling requests every 15 seconds.
-2. Generating real-time synthetic data payloads directly on the client if the backend queues run dry, maintaining a high-fidelity continuous sourcing illusion for demonstration.
+## The "Live Feed" Magic
+When you leave the app open on your screen, you don't even have to press refresh. Every 15 seconds, the app asks the Scouts, "Did you find anything new?" and instantly pops the new discoveries onto your screen, like a live news ticker!
