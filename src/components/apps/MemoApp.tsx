@@ -56,6 +56,9 @@ const SECTIONS: MemoSection[] = [
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+/** Memo generation is a slow LLM call; abort rather than spin indefinitely. */
+const GENERATE_TIMEOUT_MS = 180_000;
+
 /* ─────────────────────────────────────────
    Helpers
 ───────────────────────────────────────── */
@@ -77,9 +80,27 @@ function hasMissingFlag(value: unknown): boolean {
   return s.includes("missing") || s.includes("not provided") || s.includes("requested");
 }
 
+// The LLM returns some memo fields as objects rather than prose (competitor
+// clusters, threats). Keys the model uses to carry the human-readable headline,
+// in the order we prefer them.
+const HEADLINE_KEYS = ["statement", "name", "title", "label", "claim", "text", "description"];
+
+/** Collapse any value to readable prose — never raw JSON braces in the UI. */
+function readableValue(value: unknown): string {
+  if (value === null || value === undefined || typeof value === "boolean") return "";
+  if (Array.isArray(value)) return value.map(readableValue).filter(Boolean).join(" · ");
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const headline = HEADLINE_KEYS.find(k => typeof obj[k] === "string" && obj[k] !== "");
+    if (headline) return String(obj[headline]);
+    return Object.values(obj).map(readableValue).filter(Boolean).join(" · ");
+  }
+  return String(value);
+}
+
 /** Highlights [Source: ...] citations in text */
 function CitedText({ text }: { text: string }) {
-  if (typeof text !== "string") return <span>{JSON.stringify(text)}</span>;
+  if (typeof text !== "string") return <span>{readableValue(text)}</span>;
   const parts = text.split(/(\[Source:[^\]]+\])/g);
   return (
     <span>
@@ -130,6 +151,40 @@ function FlagBadge({ text }: { text: string }) {
   );
 }
 
+/**
+ * Renders one structured list entry (e.g. a competitor cluster or a threat):
+ * the headline as prose, with the remaining fields as labelled supporting detail.
+ */
+function StructuredItem({ item }: { item: Record<string, unknown> }) {
+  const headlineKey = HEADLINE_KEYS.find(k => typeof item[k] === "string" && item[k] !== "");
+  const headline = headlineKey ? String(item[headlineKey]) : null;
+
+  const details = Object.entries(item).filter(([k, v]) => {
+    if (k === headlineKey) return false;
+    if (v === null || v === undefined || v === "") return false;
+    if (Array.isArray(v) && v.length === 0) return false;
+    return readableValue(v) !== "";
+  });
+
+  if (!headline && details.length === 0) return <NotDisclosedBadge />;
+
+  return (
+    <div className="space-y-1">
+      {headline && <CitedText text={headline} />}
+      {details.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+          {details.map(([k, v]) => (
+            <span key={k} className="text-xs text-white/45">
+              <span className="uppercase tracking-wider text-white/25">{k.replace(/_/g, " ")}:</span>{" "}
+              {readableValue(v)}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Render any section content adaptively */
 function SectionContent({ value }: { value: unknown }) {
   if (value === null || value === undefined || value === "") {
@@ -148,7 +203,13 @@ function SectionContent({ value }: { value: unknown }) {
           <li key={i} className="flex items-start gap-2">
             <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-white/30 shrink-0" />
             <span className="text-sm text-white/70 leading-relaxed">
-              {typeof item === "string" ? <CitedText text={item} /> : JSON.stringify(item)}
+              {typeof item === "string" ? (
+                <CitedText text={item} />
+              ) : item && typeof item === "object" ? (
+                <StructuredItem item={item as Record<string, unknown>} />
+              ) : (
+                <CitedText text={String(item)} />
+              )}
             </span>
           </li>
         ))}
@@ -537,6 +598,7 @@ export default function MemoApp() {
   const [memo, setMemo] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(SECTIONS.map(s => s.key)));
   const [error, setError] = useState<string | null>(null);
 
@@ -583,16 +645,38 @@ export default function MemoApp() {
   const handleGenerate = async () => {
     if (!selectedId) return;
     setGenerating(true);
+    setError(null);
+    setElapsed(0);
+
+    // Generation is a multi-step LLM call that regularly runs 20s+. Without a
+    // ticking counter it reads as a hung button, and without an abort it can
+    // spin forever if the backend stalls.
+    const startedAt = Date.now();
+    const ticker = setInterval(() => setElapsed(Math.round((Date.now() - startedAt) / 1000)), 1000);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GENERATE_TIMEOUT_MS);
+
     try {
-      const r = await fetch(`${API}/api/memo/generate/${selectedId}`, { method: "POST" });
+      const r = await fetch(`${API}/api/memo/generate/${selectedId}`, {
+        method: "POST",
+        signal: controller.signal,
+      });
+      if (!r.ok) throw new Error(`Backend returned ${r.status}`);
       const data = await r.json();
       const content = data?.memo?.content_json || data?.memo;
       if (content) setMemo(typeof content === "string" ? JSON.parse(content) : content);
       else await loadMemo(selectedId);
-    } catch {
-      setError("Failed to generate memo. Check backend.");
+    } catch (e) {
+      setError(
+        e instanceof DOMException && e.name === "AbortError"
+          ? `Generation timed out after ${GENERATE_TIMEOUT_MS / 1000}s. The model may be slow — try again.`
+          : `Failed to generate memo: ${e instanceof Error ? e.message : "unknown error"}. Is the backend running on :8000?`
+      );
     } finally {
+      clearInterval(ticker);
+      clearTimeout(timeout);
       setGenerating(false);
+      setElapsed(0);
     }
   };
 
@@ -706,7 +790,7 @@ export default function MemoApp() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 text-xs transition-colors disabled:opacity-40"
             >
               {generating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-              {generating ? "Generating…" : memo ? "Re-generate" : "Generate Memo"}
+              {generating ? `Generating… ${elapsed}s` : memo ? "Re-generate" : "Generate Memo"}
             </button>
           </div>
         </div>
@@ -766,7 +850,7 @@ export default function MemoApp() {
                 disabled={generating || !selectedId}
                 className="px-5 py-2.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-xl hover:bg-amber-500/25 text-sm transition-colors disabled:opacity-40"
               >
-                {generating ? "Generating…" : "Generate Now"}
+                {generating ? `Generating… ${elapsed}s` : "Generate Now"}
               </button>
             </div>
           </div>

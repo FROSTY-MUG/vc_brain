@@ -1,11 +1,21 @@
 "use client";
 
 import { Desktop } from "@/components/os/Desktop";
-import { useSession, signIn } from "next-auth/react";
+import { useSession, signIn, getProviders } from "next-auth/react";
 import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function Home() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
+  const [hasGoogle, setHasGoogle] = useState<boolean | null>(null);
+  const [demoEmail, setDemoEmail] = useState("");
+  const [demoName, setDemoName] = useState("");
+
+  useEffect(() => {
+    getProviders()
+      .then(providers => setHasGoogle(Boolean(providers?.google)))
+      .catch(() => setHasGoogle(false));
+  }, []);
 
   if (status === "loading") {
     return (
@@ -34,20 +44,61 @@ export default function Home() {
             Deploying $100K Checks in 24 Hours. Intelligent sourcing, screening, and diligence.
           </p>
           
-          <div className="flex w-full gap-3">
-            <button 
-              onClick={() => signIn("google")}
-              className="flex-1 py-3.5 px-4 bg-white hover:bg-gray-100 text-black font-semibold rounded-xl transition-all flex items-center justify-center shadow-xl"
+          {hasGoogle === null ? (
+            <Loader2 className="animate-spin text-white/40" size={20} />
+          ) : hasGoogle ? (
+            <div className="flex w-full gap-3">
+              <button
+                onClick={() => signIn("google")}
+                className="flex-1 py-3.5 px-4 bg-white hover:bg-gray-100 text-black font-semibold rounded-xl transition-all flex items-center justify-center shadow-xl"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => signIn("google")}
+                className="flex-1 py-3.5 px-4 bg-black border border-white/20 hover:bg-white/5 text-white font-semibold rounded-xl transition-all flex items-center justify-center shadow-xl"
+              >
+                Sign Up
+              </button>
+            </div>
+          ) : (
+            <form
+              className="w-full flex flex-col gap-3"
+              onSubmit={e => {
+                e.preventDefault();
+                if (!demoEmail.trim()) return;
+                signIn("demo", { email: demoEmail, name: demoName, callbackUrl: "/" });
+              }}
             >
-              Sign In
-            </button>
-            <button 
-              onClick={() => signIn("google")}
-              className="flex-1 py-3.5 px-4 bg-black border border-white/20 hover:bg-white/5 text-white font-semibold rounded-xl transition-all flex items-center justify-center shadow-xl"
-            >
-              Sign Up
-            </button>
-          </div>
+              <input
+                type="email"
+                required
+                value={demoEmail}
+                onChange={e => setDemoEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full bg-black/50 border border-white/10 focus:border-gold-400/60 rounded-xl p-3 text-sm text-white outline-none transition-colors"
+              />
+              <input
+                type="text"
+                value={demoName}
+                onChange={e => setDemoName(e.target.value)}
+                placeholder="Your name (optional)"
+                className="w-full bg-black/50 border border-white/10 focus:border-gold-400/60 rounded-xl p-3 text-sm text-white outline-none transition-colors"
+              />
+              <button
+                type="submit"
+                className="w-full py-3.5 px-4 bg-white hover:bg-gray-100 text-black font-semibold rounded-xl transition-all flex items-center justify-center shadow-xl"
+              >
+                Enter Demo
+              </button>
+              <p className="text-white/40 text-[11px] leading-relaxed">
+                Google sign-in is not configured, so the app is running in demo mode — any
+                email is accepted and no identity is verified. Set GOOGLE_CLIENT_ID and
+                GOOGLE_CLIENT_SECRET in <span className="font-mono">.env.local</span> to
+                restore real sign-in.
+              </p>
+            </form>
+          )}
         </div>
       </div>
     );
