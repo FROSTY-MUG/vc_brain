@@ -506,6 +506,29 @@ function RecommendationBanner({ rec, memo }: { rec: Record<string, unknown>; mem
 }
 
 /* ─────────────────────────────────────────
+   Manual Call
+───────────────────────────────────────── */
+const MANUAL_CALL_QUESTION_COUNT = 5;
+
+// Used to top up the memo's own open questions so the investor always walks
+// into the call with a full agenda, even on a thin memo.
+const FALLBACK_CALL_QUESTIONS = [
+  "Can you clarify your monetization timeline and the pricing you have tested so far?",
+  "What is your primary moat, and what stops a well-funded incumbent from copying it?",
+  "Walk me through your retention — how many of your earliest users are still active?",
+  "How did the founding team meet, and how do you split decisions when you disagree?",
+  "What would you do with a $100K check in the next 90 days, and what would it prove?",
+];
+
+const buildCallQuestions = (memoQuestions: unknown): string[] => {
+  const fromMemo = Array.isArray(memoQuestions)
+    ? memoQuestions.filter((q): q is string => typeof q === "string" && q.trim() !== "")
+    : [];
+  const topUp = FALLBACK_CALL_QUESTIONS.filter(q => !fromMemo.includes(q));
+  return [...fromMemo, ...topUp].slice(0, MANUAL_CALL_QUESTION_COUNT);
+};
+
+/* ─────────────────────────────────────────
    Main Component
 ───────────────────────────────────────── */
 export default function MemoApp() {
@@ -568,6 +591,7 @@ export default function MemoApp() {
       else await loadMemo(selectedId);
     } catch {
       setError("Failed to generate memo. Check backend.");
+    } finally {
       setGenerating(false);
     }
   };
@@ -891,9 +915,9 @@ export default function MemoApp() {
                       <User size={24} className="text-white/70" />
                     </div>
                     <div className="font-bold mb-1 text-lg">Manual Call</div>
-                    <div className="text-sm text-white/50 mb-5">You call the founder yourself. Here are the critical questions to ask:</div>
+                    <div className="text-sm text-white/50 mb-5">You call the founder yourself. Here are the {MANUAL_CALL_QUESTION_COUNT} critical questions to ask:</div>
                     <ul className="text-sm text-white/80 space-y-3 list-disc pl-4 flex-1">
-                      {((memo.open_questions as string[]) || ["Can you clarify your monetization timeline?", "What is your primary moat?"]).map((q, i) => (
+                      {buildCallQuestions(memo.open_questions).map((q, i) => (
                         <li key={i}>{q}</li>
                       ))}
                     </ul>

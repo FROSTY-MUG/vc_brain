@@ -47,7 +47,85 @@ _in_memory_db = {
 
 # ── Seed Data Helper ──
 def _seed_in_memory_db():
-    pass
+    if _in_memory_db["startups"]:
+        return
+        
+    s1_id = "test-startup-id-1"
+    _in_memory_db["startups"].append({
+        "id": s1_id,
+        "name": "Electron AI",
+        "website": "https://electron.ai",
+        "sector": "AI Infrastructure",
+        "stage": "Seed",
+        "geography": "Berlin",
+        "created_at": datetime.utcnow().isoformat()
+    })
+
+    app_id = "test-app-id-1"
+    _in_memory_db["applications"].append({
+        "id": app_id,
+        "startup_id": s1_id,
+        "source_type": "inbound",
+        "raw_text": "Electron AI builds...",
+        "deck_url": "https://pitchdeck.com/electron-ai",
+        "status": "diligence",
+        "submitted_at": datetime.utcnow().isoformat()
+    })
+    
+    _in_memory_db["opportunity_scores"].append({
+        "id": str(uuid.uuid4()),
+        "application_id": app_id,
+        "founder_score": 85,
+        "market_score": 90,
+        "idea_score": 75,
+        "recommendation": "deploy",
+        "confidence": 0.88,
+        "reasoning": "Strong founder background with deep domain expertise. Market is growing rapidly."
+    })
+    
+    _in_memory_db["memos"].append({
+        "id": str(uuid.uuid4()),
+        "application_id": app_id,
+        "content_json": {
+            "company_snapshot": "Next-generation distributed training infrastructure for AI.",
+            "investment_hypotheses": [
+                "Elite technical founder building in a critical infrastructure layer.",
+                "Early prototype shows 3x faster training on 100B parameter models."
+            ],
+            "swot": {
+                "strengths": [
+                    {"statement": "Elite technical founder", "factors": ["Ex-Google"], "conflicts": []},
+                    {"statement": "3x performance improvement", "factors": ["Verified metrics"], "conflicts": []}
+                ],
+                "weaknesses": [
+                    {"statement": "Solo founder", "factors": ["No commercial co-founder"], "conflicts": []}
+                ],
+                "opportunities": [
+                    {"statement": "Explosive growth in LLM training", "factors": ["High demand"], "conflicts": []}
+                ],
+                "threats": [
+                    {"statement": "Hyperscalers", "factors": ["AWS, GCP"], "conflicts": []}
+                ]
+            },
+            "team_and_history": "Alex Rivera scaled ML infrastructure at Google.",
+            "problem_and_product": "AI models are becoming too large to train efficiently. Electron AI solves this with distributed training.",
+            "technology_and_defensibility": "Proprietary network routing algorithm for GPU clusters.",
+            "market_sizing": "AI infrastructure is expanding rapidly (40% CAGR).",
+            "competition": "Several well-funded competitors including hyperscalers.",
+            "traction_and_kpis": "Early prototype shows 3x faster training.",
+            "financials_and_round": "Not disclosed.",
+            "cap_table": "Not disclosed.",
+            "due_diligence_log": "Checked technical viability. Open: Commercial strategy.",
+            "exit_perspective": "Acquisition by major cloud provider.",
+            "recommendation": {
+                "action": "deploy",
+                "confidence": "HIGH",
+                "reasoning": "Strong technical founder building in a critical infrastructure layer.",
+                "open_questions": ["What is the go-to-market strategy?"]
+            }
+        },
+        "created_at": datetime.utcnow().isoformat()
+    })
 
 
 # Initialize Supabase client or fall back
@@ -62,6 +140,7 @@ try:
 except Exception as e:
     _use_in_memory = True
     print(f"Supabase connection could not be established ({e}). Falling back to In-Memory Database.")
+    _seed_in_memory_db()
 
 def get_supabase() -> Client:
     global _client, _use_in_memory

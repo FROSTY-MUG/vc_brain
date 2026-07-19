@@ -197,9 +197,16 @@ def generate_memo(
     if not any(c.get("claim_type") == "revenue" for c in claims):
         questions.append("Revenue data not provided. Request bank statements or Stripe dashboard.")
     
-    questions.append("What is the current burn rate and cash runway?")
-    questions.append("What are the key assumptions in the financial model?")
-    
+    # Generic finance questions only fill space that deal-specific gaps and
+    # contradictions did not already claim — they must never crowd them out.
+    for fallback in (
+        "What is the current burn rate and cash runway?",
+        "What are the key assumptions in the financial model?",
+    ):
+        if len(questions) >= 5:
+            break
+        questions.append(fallback)
+
     memo["open_questions"] = questions
     memo["generated_at"] = datetime.utcnow().isoformat() + "Z"
     

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { User, Shield, Briefcase, Brain, Loader, ArrowRight, CheckCircle2 } from "lucide-react";
+import { User, Shield, Briefcase, Brain, Loader, ArrowRight, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 interface OnboardingProps {
@@ -12,11 +12,19 @@ const SECTORS = ["AI Infrastructure", "Developer Tools", "Enterprise SaaS", "Fin
 const STAGES = ["pre-seed", "seed", "series-a"];
 const RISK_LEVELS = ["conservative", "moderate", "aggressive"];
 
+const SetupError = ({ message }: { message: string }) => (
+  <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-left">
+    <AlertTriangle size={14} className="mt-0.5 shrink-0 text-red-400" />
+    <span className="text-xs text-red-200">{message}</span>
+  </div>
+);
+
 export const Onboarding = ({ onComplete }: OnboardingProps) => {
   const { data: session } = useSession();
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<"founder" | "investor" | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Investor Form
   const [fundSize, setFundSize] = useState("");
@@ -36,29 +44,50 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
     if (step === 1 && role) setStep(2);
   };
 
+  // Double-clicking a role card selects it and advances in one gesture.
+  const selectRoleAndContinue = (r: "founder" | "investor") => {
+    setRole(r);
+    setStep(2);
+  };
+
   const handleOnboard = async () => {
-    if (!role || !session?.user?.email) return;
+    if (!role) return;
+
+    const email = session?.user?.email;
+    if (!email) {
+      setError("No signed-in account was found. Sign in again, then re-run setup.");
+      return;
+    }
+
     setSubmitting(true);
+    setError(null);
     try {
       // 1. Create User Profile
       const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: session.user.email,
-          name: session.user.name || "User",
-          avatar_url: session.user.image || "",
+          email,
+          name: session.user?.name || "User",
+          avatar_url: session.user?.image || "",
           role: role
         })
       });
 
+      // The proxy forwards the backend body with a 200 even when the backend
+      // itself reported a failure, so check the payload as well as the status.
+      const data = await res.json().catch(() => null);
+      if (!res.ok || data?.error) {
+        throw new Error(data?.error || `Profile save failed (${res.status})`);
+      }
+
       // 2. Save Thesis (if investor) or Startup (if founder)
       if (role === "investor") {
-        await fetch("/api/thesis", {
+        const thesisRes = await fetch("/api/thesis", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: session.user.email,
+            userId: email,
             sectors: selectedSectors,
             stages: selectedStages,
             checkSizeMin: parseInt(checkSizeMin) || 0,
@@ -67,15 +96,22 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
             riskAppetite: risk,
           })
         });
+        const thesisData = await thesisRes.json().catch(() => null);
+        if (!thesisRes.ok || thesisData?.error) {
+          throw new Error(thesisData?.error || `Thesis save failed (${thesisRes.status})`);
+        }
       } else {
         // save startup info (we'll implement this endpoint next if it doesn't exist)
       }
 
-      if (res.ok) {
-        onComplete(role);
-      }
+      onComplete(role);
     } catch (err) {
       console.error(err);
+      setError(
+        err instanceof Error && err.message
+          ? `${err.message}. Is the backend running on :8000?`
+          : "Setup failed. Is the backend running on :8000?"
+      );
     }
     setSubmitting(false);
   };
@@ -99,11 +135,11 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
             <p className="text-white/50 text-xs mb-8">Choose your role to initialize your space.</p>
 
             <div className="grid grid-cols-2 gap-4 w-full mb-8">
-              <button onClick={() => setRole("founder")} className={`p-5 rounded-xl border flex flex-col items-center gap-3 transition-all ${role === "founder" ? "bg-gold-500/10 border-gold-400 shadow-[0_0_15px_rgba(251,191,36,0.15)]" : "bg-white/5 border-white/10"}`}>
+              <button onClick={() => setRole("founder")} onDoubleClick={() => selectRoleAndContinue("founder")} className={`p-5 rounded-xl border flex flex-col items-center gap-3 transition-all select-none ${role === "founder" ? "bg-gold-500/10 border-gold-400 shadow-[0_0_15px_rgba(251,191,36,0.15)]" : "bg-white/5 border-white/10"}`}>
                 <div className={`p-2.5 rounded-lg ${role === "founder" ? "bg-gold-500/20 text-gold-400" : "bg-white/5 text-white/50"}`}><Briefcase size={24} /></div>
                 <div><span className="block text-sm font-bold text-white">Founder</span></div>
               </button>
-              <button onClick={() => setRole("investor")} className={`p-5 rounded-xl border flex flex-col items-center gap-3 transition-all ${role === "investor" ? "bg-gold-500/10 border-gold-400 shadow-[0_0_15px_rgba(251,191,36,0.15)]" : "bg-white/5 border-white/10"}`}>
+              <button onClick={() => setRole("investor")} onDoubleClick={() => selectRoleAndContinue("investor")} className={`p-5 rounded-xl border flex flex-col items-center gap-3 transition-all select-none ${role === "investor" ? "bg-gold-500/10 border-gold-400 shadow-[0_0_15px_rgba(251,191,36,0.15)]" : "bg-white/5 border-white/10"}`}>
                 <div className={`p-2.5 rounded-lg ${role === "investor" ? "bg-gold-500/20 text-gold-400" : "bg-white/5 text-white/50"}`}><Shield size={24} /></div>
                 <div><span className="block text-sm font-bold text-white">Investor</span></div>
               </button>
@@ -156,9 +192,11 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
               </div>
             </div>
 
+            {error && <SetupError message={error} />}
+
             <div className="mt-4 flex gap-2 pt-4 border-t border-white/10">
               <button onClick={() => setStep(1)} className="px-4 py-2 bg-white/5 text-white rounded-xl text-sm font-medium">Back</button>
-              <button onClick={handleOnboard} disabled={submitting} className="flex-1 py-2 bg-white text-black font-semibold rounded-xl flex items-center justify-center gap-2">
+              <button onClick={handleOnboard} disabled={submitting} className="flex-1 py-2 bg-white text-black font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50">
                 {submitting ? <Loader size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} Finish Setup
               </button>
             </div>
@@ -191,9 +229,11 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
               </div>
             </div>
 
+            {error && <SetupError message={error} />}
+
             <div className="mt-4 flex gap-2 pt-4 border-t border-white/10">
               <button onClick={() => setStep(1)} className="px-4 py-2 bg-white/5 text-white rounded-xl text-sm font-medium">Back</button>
-              <button onClick={handleOnboard} disabled={submitting || !companyName} className="flex-1 py-2 bg-white text-black font-semibold rounded-xl flex items-center justify-center gap-2">
+              <button onClick={handleOnboard} disabled={submitting || !companyName} className="flex-1 py-2 bg-white text-black font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50">
                 {submitting ? <Loader size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} Finish Setup
               </button>
             </div>
