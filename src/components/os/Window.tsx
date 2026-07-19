@@ -88,7 +88,7 @@ export const WindowComponent: React.FC<WindowProps> = ({ windowState, children }
       </div>
       
       {/* Content */}
-      <div className="flex-1 overflow-y-auto bg-[#0a0a0a] w-full h-full">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[#0a0a0a] w-full min-h-0">
         {children}
       </div>
     </Rnd>

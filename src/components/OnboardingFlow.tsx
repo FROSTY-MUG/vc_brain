@@ -31,7 +31,7 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
   }
 
   // If logged in but no role selected (not onboarded)
-  if (!(session.user as any)?.onboarded) {
+  if (!(session.user as { onboarded?: boolean })?.onboarded) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
         <div className="glass-panel p-8 rounded-2xl flex flex-col max-w-xl w-full text-white">

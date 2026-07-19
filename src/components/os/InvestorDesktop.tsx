@@ -2,7 +2,7 @@ import React from "react";
 import { WindowManager } from "./WindowManager";
 import { Taskbar } from "./Taskbar";
 import { StartMenu } from "./StartMenu";
-import { Target, Search, FileText, Settings, MessageSquare, Briefcase, Activity, User } from "lucide-react";
+import { Target, Search, FileText, Settings, MessageSquare, Briefcase, Activity, User, TrendingUp } from "lucide-react";
 import { useOSStore } from "@/store/useOSStore";
 
 export const InvestorDesktop = () => {
@@ -12,8 +12,9 @@ export const InvestorDesktop = () => {
     { id: "profile", title: "My Profile", icon: User, color: "text-white/60" },
     { id: "thesis", title: "Thesis Engine", icon: Settings, color: "text-slate-400" },
     { id: "sourcing", title: "Sourcing Engine", icon: Search, color: "text-emerald-400" },
-    { id: "radar", title: "Opportunity Radar", icon: Target, color: "text-amber-400" },
-    { id: "memo", title: "Diligence & Memo", icon: FileText, color: "text-purple-400" },
+    { id: "radar", title: "Sourcing Graph", icon: Target, color: "text-indigo-400" },
+    { id: "analytics", title: "Traction & KPIs", icon: TrendingUp, color: "text-purple-400" },
+    { id: "memo", title: "Diligence & Memo", icon: FileText, color: "text-amber-400" },
     { id: "agents", title: "Agent Hub", icon: Activity, color: "text-cyan-400" },
     { id: "messages", title: "Messages", icon: MessageSquare, color: "text-blue-400" },
   ];

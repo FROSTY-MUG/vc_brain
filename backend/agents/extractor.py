@@ -10,7 +10,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
 
 EXTRACTION_PROMPT = """You are a venture capital analyst AI. You have been given the raw text extracted from a startup's pitch deck.
 

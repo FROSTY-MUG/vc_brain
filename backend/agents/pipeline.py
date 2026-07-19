@@ -4,6 +4,7 @@ import asyncio
 from typing import List, Dict, Any, Optional, TypedDict
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+from datetime import datetime
 
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, START, END
@@ -11,7 +12,7 @@ from langgraph.graph import StateGraph, START, END
 from agents.sourcer import research_founders_and_company
 from agents.founder_scorer import score_founders
 from agents.screener import run_screener
-from services.memo import generate_memo
+from agents.memo_writer import generate_memo  # LLM-backed 14-section memo
 import db
 
 load_dotenv()
@@ -31,6 +32,21 @@ class AgentState(TypedDict):
     founder_scores: Optional[List[dict]]
     opportunity_scores: Optional[dict]
     final_memo: Optional[dict]
+    # Chain-of-thought log for agentic traceability
+    cot_log: Optional[List[dict]]
+
+
+def _log_step(state: AgentState, agent: str, action: str, detail: str = "", status: str = "success") -> None:
+    """Append a step to the chain-of-thought log."""
+    if "cot_log" not in state or state["cot_log"] is None:
+        state["cot_log"] = []
+    state["cot_log"].append({
+        "ts": datetime.utcnow().isoformat() + "Z",
+        "agent": agent,
+        "action": action,
+        "detail": detail,
+        "status": status
+    })
 
 # ==========================================
 # 2. Pydantic Models for Extraction
@@ -62,6 +78,7 @@ class ValidationList(BaseModel):
 # ==========================================
 def extract_node(state: AgentState) -> AgentState:
     raw_text = state.get("raw_text", "")
+    _log_step(state, "Extractor", "Parsing pitch deck text", f"{len(raw_text)} chars ingested")
     llm = ChatOpenAI(model="gpt-4o", temperature=0)
     llm_with_tools = llm.with_structured_output(ExtractionResult)
     
@@ -72,24 +89,33 @@ def extract_node(state: AgentState) -> AgentState:
         state["founders"] = [{"name": f} for f in result.founders]
         state["extracted_claims"] = [c.model_dump() for c in result.claims]
         state["startup_info"] = {"sector": result.sector, "geography": result.geography, "stage": result.stage}
+        _log_step(state, "Extractor", "Extraction complete",
+                  f"Company: {result.company_name} | Founders: {result.founders} | {len(result.claims)} claims extracted [Source: Deck — GPT-4o extraction]")
     except Exception as e:
         print(f"Extraction error: {e}")
         state["extracted_claims"] = []
+        _log_step(state, "Extractor", "Extraction failed", str(e), "failed")
     return state
 
 def web_research_node(state: AgentState) -> AgentState:
     founders = state.get("founders", []) or []
     company_name = state.get("company_name", "Unknown Startup")
+    _log_step(state, "Sourcer", "Starting web research", f"Scanning GitHub, LinkedIn, News, ProductHunt for {company_name}")
     research_data = research_founders_and_company(founders, company_name)
     founder_scores = score_founders(founders, research_data)
     state["web_research"] = research_data
     state["founder_scores"] = founder_scores
+    n_founders = len(founders)
+    _log_step(state, "Sourcer", "Web research complete",
+              f"{n_founders} founders researched [Source: GitHub API, Tavily web search, ProductHunt API]")
     return state
 
 def validate_node(state: AgentState) -> AgentState:
     claims = state.get("extracted_claims", []) or []
     web_research = state.get("web_research", {}) or {}
-    if not claims: 
+    _log_step(state, "Validator", "Cross-referencing claims against web evidence",
+              f"{len(claims)} claims to validate [Source: Tavily web research, GitHub API]")
+    if not claims:
         state["validated_claims"] = []
         return state
         
@@ -100,14 +126,20 @@ def validate_node(state: AgentState) -> AgentState:
     try:
         result = llm_with_tools.invoke(prompt)
         validated = []
+        contradictions = 0
         for claim, val in zip(claims, result.validations):
             c = claim.copy()
             c["trust_score"] = val.model_dump()
+            if val.contradiction_flag:
+                contradictions += 1
             validated.append(c)
         state["validated_claims"] = validated
+        _log_step(state, "Validator", "Validation complete",
+                  f"{len(validated)} claims validated | {contradictions} contradictions flagged [Source: GPT-4o cross-reference]")
     except Exception as e:
         print(f"Validation error: {e}")
         state["validated_claims"] = claims
+        _log_step(state, "Validator", "Validation fallback", str(e), "failed")
     return state
 
 def screen_node(state: AgentState) -> AgentState:
@@ -115,28 +147,48 @@ def screen_node(state: AgentState) -> AgentState:
     web_research = state.get("web_research", {}) or {}
     founder_scores = state.get("founder_scores", []) or []
     startup_info = state.get("startup_info", {}) or {}
+    _log_step(state, "Screener", "Running 3-axis opportunity scoring",
+              "Scoring: Founder / Market / Idea independently (not averaged) [Source: GPT-4o screener]")
     scores = run_screener(claims, web_research, founder_scores, startup_info)
     state["opportunity_scores"] = scores
+    f_score = scores.get("founder", {}).get("score", 0)
+    m_score = scores.get("market", {}).get("score", 0)
+    i_score = scores.get("idea_vs_market", {}).get("score", 0)
+    rec = scores.get("recommendation", "diligence")
+    _log_step(state, "Screener", "Screening complete",
+              f"Founder: {f_score}/100 | Market: {m_score}/100 | Idea: {i_score}/100 → {rec.upper()} [Source: 3-axis screener]")
     return state
 
 def memo_node(state: AgentState) -> AgentState:
+    _log_step(state, "Memo Agent", "Generating 14-section investment memo",
+              "Writing evidence-backed memo with inline citations and gap-flagging [Source: All pipeline data]")
+    extraction = {
+        "company_name": state.get("company_name"),
+        "startup_info": state.get("startup_info", {}),
+        "founders": state.get("founders", []),
+        "claims": state.get("validated_claims", []),
+    }
     memo = generate_memo(
-        startup={"name": state.get("company_name"), **(state.get("startup_info", {}) or {})},
-        founders=state.get("founders", []) or [],
-        founder_scores=state.get("founder_scores", []) or [],
-        claims=state.get("validated_claims", []) or [],
-        opportunity_scores=state.get("opportunity_scores", {}) or {}
+        extraction=extraction,
+        research=state.get("web_research", {}) or {},
+        validation=state.get("validated_claims", []) or [],
+        screening=state.get("opportunity_scores", {}) or {}
     )
     # Update recommendation from memo
     opp = state.get("opportunity_scores", {}) or {}
-    opp["recommendation"] = memo.get("recommendation", {}).get("action", "diligence")
+    rec_obj = memo.get("recommendation", {})
+    rec_action = rec_obj.get("action", "diligence") if isinstance(rec_obj, dict) else "diligence"
+    opp["recommendation"] = rec_action
     state["final_memo"] = memo
     state["opportunity_scores"] = opp
+    _log_step(state, "Memo Agent", "Memo complete",
+              f"14 sections generated | Recommendation: {rec_action.upper()} | Confidence: {rec_obj.get('confidence', 'LOW') if isinstance(rec_obj, dict) else 'LOW'}")
     return state
 
 def db_write_node(state: AgentState) -> AgentState:
     app_id = state.get("app_id")
     if not app_id: return state
+    _log_step(state, "Memory Layer", "Persisting pipeline results to database", f"app_id: {app_id}")
     
     try:
         for claim in state.get("validated_claims", []) or []:
@@ -173,9 +225,17 @@ def db_write_node(state: AgentState) -> AgentState:
             "status": "diligence",
             "source_detail": json.dumps(state.get("web_research", {}) or {})
         }).eq("id", app_id).execute()
+
+        # Persist chain-of-thought log
+        cot = state.get("cot_log") or []
+        if cot:
+            sb.table("applications").update({
+                "cot_log": json.dumps(cot)
+            }).eq("id", app_id).execute()
         
     except Exception as e:
         print(f"DB Write error: {e}")
+        _log_step(state, "Memory Layer", "DB write failed", str(e), "failed")
         
     return state
 
@@ -205,7 +265,7 @@ app_pipeline = build_pipeline()
 
 def run_application_pipeline(raw_text: str, app_id: str):
     initial_state = {
-        "app_id": app_id, 
+        "app_id": app_id,
         "raw_text": raw_text,
         "company_name": None,
         "founders": None,
@@ -215,6 +275,7 @@ def run_application_pipeline(raw_text: str, app_id: str):
         "startup_info": None,
         "founder_scores": None,
         "opportunity_scores": None,
-        "final_memo": None
+        "final_memo": None,
+        "cot_log": []
     }
     return app_pipeline.invoke(initial_state)

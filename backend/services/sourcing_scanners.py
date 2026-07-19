@@ -21,7 +21,7 @@ CRUNCHBASE_AUTOCOMPLETE_URL = "https://api.crunchbase.com/v4/data/autocompletes"
 from openai import OpenAI
 import base64
 
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
 
 def scan_github(query: str = "llm-agent OR AI-infra") -> list:
     """

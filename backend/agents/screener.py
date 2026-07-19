@@ -10,7 +10,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
 
 SCREENER_PROMPT = """You are an elite VC screening AI. 
 Evaluate a startup opportunity based on pitch deck claims and web research.

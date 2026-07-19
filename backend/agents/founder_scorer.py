@@ -10,7 +10,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
 
 FOUNDER_SCORE_PROMPT = """You are a VC AI. Evaluate a founder's raw track record (from web research) and generate a persistent 'Founder Score'.
 

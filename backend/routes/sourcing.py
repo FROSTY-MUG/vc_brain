@@ -16,7 +16,7 @@ from services.sourcing_scanners import (
 router = APIRouter()
 
 # Initialize OpenAI client
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
 
 @router.get("/outbound/signals")
 async def get_outbound_signals():

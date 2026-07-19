@@ -10,7 +10,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
 
 VALIDATOR_PROMPT = """You are a VC diligence AI. Your job is to calculate a 'Trust Score' for claims made in a pitch deck by comparing them to independent web research.
 

@@ -1,8 +1,16 @@
 # =============================================
 # VC Brain — Agent 5: Investment Memo Agent
 # =============================================
-# Generates an evidence-backed investment memo
-# based on extraction, research, and screening.
+# Generates a full 14-section evidence-backed
+# investment memo per Appendix 1 requirements.
+# Rules:
+#   1. Agentic Traceability: every claim cites
+#      its exact source (deck slide, web signal,
+#      interview excerpt).
+#   2. Gap-Flagging: never fabricate missing data.
+#      Confidential sections (cap table, financials)
+#      MUST be explicitly marked "not disclosed"
+#      or "unavailable at this stage".
 # =============================================
 import os
 import json
@@ -10,56 +18,131 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
 
-MEMO_PROMPT = """You are a top-tier VC Associate. Write a final investment memo.
+MEMO_PROMPT = """You are a top-tier VC Associate at a $100M early-stage fund.
+Write a complete, evidence-backed investment memo following Appendix 1 standards.
 
-You have access to:
-1. Pitch deck extraction data
-2. Web research data (GitHub, LinkedIn, News)
-3. Validation results (Trust Scores for claims)
-4. 3-Axis Screening Scores
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RULE 1 — AGENTIC TRACEABILITY
+Every factual claim in the memo MUST cite its source inline using [Source: ...] notation.
+Examples:
+  "The team has 3 years of AI experience [Source: LinkedIn — John Doe]"
+  "$1M ARR [Source: Deck — Traction Slide]"
+  "Market growing at 34% CAGR [Source: Web — Gartner 2024]"
+  "2 GitHub repos with 500+ stars [Source: GitHub API — alexrivera]"
 
-Requirement 1 (Agentic Traceability): EVERY factual claim in the memo MUST cite its source inline. 
-Example: "The team has 3 years of AI experience [Source: LinkedIn - John Doe] and $1M ARR [Source: Deck - Traction Slide]."
+RULE 2 — GAP-FLAGGING (CRITICAL)
+If ANY information is missing, unavailable, or intentionally withheld (particularly
+Financials & round structure, Cap table, Customer references, Due diligence interviews),
+it MUST be explicitly flagged — never silently omitted or guessed.
+Use phrases like:
+  "Cap table: not disclosed"
+  "Customer references: unavailable at this stage"
+  "Historical P&L: not provided — requested"
+  "Round size: not confirmed"
+A memo that clearly marks its own gaps is MORE trustworthy than one that fills them invisibly.
 
-Requirement 2: Do NOT fabricate data. If any information is missing, unavailable, or intentionally left out (particularly Financials & round structure, Cap table, or Customer references), it MUST be explicitly flagged in the memo (e.g., "Cap table: not disclosed" or "Customer references: unavailable at this stage") rather than silently omitted or guessed. A memo that clearly marks its own gaps is more trustworthy.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRED SECTIONS (output as JSON):
 
-Sections required in JSON:
-- "company_snapshot": One paragraph "in a nutshell".
-- "investment_hypotheses": "Why we want to invest" bullets.
-- "swot": Strengths, weaknesses, opportunities, risks.
-- "team_history": Founder backgrounds and pedigree.
-- "problem_product": The core problem and solution.
-- "tech_defensibility": Data moat, architecture.
-- "market_sizing": TAM/SAM/SOM.
-- "competition": Named competitors.
-- "traction_kpis": Revenue, usage, metrics.
-- "financials_round": P&L, round size, next round.
-- "cap_table": Pre/post ownership, ESOP.
-- "due_diligence_log": What was checked, what's open.
-- "exit_perspective": Plausible exit paths.
-- "recommendation": "deploy", "diligence", or "pass".
+1. company_snapshot — One paragraph "in a nutshell": market size, structural problem,
+   why it's urgent, how the product solves it. Must include market sizing signal if available.
 
-Output strictly as a JSON object with these keys mapping to strings (or arrays of strings where appropriate). No markdown fences.
+2. investment_hypotheses — Array of "why we want to invest" bullets. Must cover:
+   team quality, market wedge, stickiness/retention mechanics, traction signal,
+   defensibility, expansion path. Each bullet must cite evidence.
+
+3. swot — Object with: strengths[], weaknesses[], opportunities[], threats[].
+   Each as short, evidence-backed bullet strings. Never generic.
+
+4. team_and_history — Founder background, exec team pedigree, company timeline
+   from founding to today. Address any red flags (e.g. single-founder) explicitly.
+
+5. problem_and_product — Core problem(s) in plain language, then step-by-step
+   product/process solving it.
+
+6. technology_and_defensibility — What's proprietary vs. commoditizable,
+   the data moat, model/architecture choices, why the advantage compounds over time.
+
+7. market_sizing — Top-down AND/OR bottom-up TAM/SAM/SOM with assumptions stated explicitly.
+   If unavailable: "Market sizing: not provided by founders — external estimates used."
+
+8. competition — Named competitor clusters, how each differs from the company,
+   who could become a threat later. Never "no competition exists."
+
+9. traction_and_kpis — Customer count, ARR/revenue, growth trajectory,
+   unit economics (CAC, sales cycle, churn), usage metrics (DAU, etc.).
+   Flag missing KPIs explicitly.
+
+10. financials_and_round — Historical + projected P&L (revenue, EBITDA, opex, COGS),
+    round size, runway, next-round timing.
+    These are almost always confidential — if not provided:
+    "Financials: not disclosed — standard for this stage" or "Round size: not confirmed."
+
+11. cap_table — Pre- and post-round ownership by party, dilution assumptions, VSOP/ESOP.
+    Almost always confidential: "Cap table: not disclosed."
+
+12. due_diligence_log — What was checked (commercial, people, financial, technical),
+    what's open/pending. List each item as checked/open/pending.
+
+13. exit_perspective — Plausible exit paths (strategic acquirers, IPO thesis, comparable exits).
+    Include comparable multiples if available.
+
+14. recommendation — Object with:
+    - action: "deploy" | "diligence" | "watch" | "pass"
+    - confidence: "HIGH" | "MEDIUM" | "LOW"
+    - reasoning: string explaining the decision
+    - open_questions: array of outstanding questions for next meeting
+
+Output strictly as a JSON object with these 14 keys. No markdown fences.
+All string fields may include inline [Source: ...] citations.
+All missing data points must be flagged — never omit silently.
 """
+
 
 def generate_memo(extraction: dict, research: dict, validation: dict, screening: dict) -> dict:
     """
-    Generates a full investment memo.
+    Generates a full 14-section investment memo with citations and gap-flagging.
+    Called by both the pipeline (auto) and the on-demand route.
     """
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": MEMO_PROMPT},
-            {"role": "user", "content": f"Extraction:\n{json.dumps(extraction)}\n\nResearch:\n{json.dumps(research)[:15000]}\n\nValidation:\n{json.dumps(validation)}\n\nScreening:\n{json.dumps(screening)}"}
-        ],
-        temperature=0.2,
-        response_format={"type": "json_object"}
-    )
-    
-    result_text = response.choices[0].message.content
     try:
-        return json.loads(result_text)
-    except json.JSONDecodeError:
-        return {"error": "Failed to parse memo data", "raw": result_text}
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": MEMO_PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        f"PITCH DECK EXTRACTION:\n{json.dumps(extraction, indent=2)[:6000]}\n\n"
+                        f"WEB RESEARCH (GitHub, LinkedIn, News, ProductHunt):\n{json.dumps(research, indent=2)[:12000]}\n\n"
+                        f"VALIDATION (Trust Scores per claim):\n{json.dumps(validation, indent=2)[:4000]}\n\n"
+                        f"SCREENING (3-Axis Scores: Founder / Market / Idea):\n{json.dumps(screening, indent=2)[:3000]}"
+                    )
+                }
+            ],
+            temperature=0.2,
+            response_format={"type": "json_object"}
+        )
+
+        result_text = response.choices[0].message.content
+        memo = json.loads(result_text)
+
+        # Ensure recommendation is a proper dict
+        rec = memo.get("recommendation", {})
+        if isinstance(rec, str):
+            memo["recommendation"] = {"action": rec, "confidence": "LOW", "reasoning": rec, "open_questions": []}
+
+        return memo
+
+    except json.JSONDecodeError as e:
+        return {
+            "error": f"Failed to parse memo JSON: {e}",
+            "raw": result_text if 'result_text' in locals() else "",
+            "recommendation": {"action": "diligence", "confidence": "LOW", "reasoning": "Memo generation failed — manual review required.", "open_questions": []}
+        }
+    except Exception as e:
+        return {
+            "error": f"Memo generation failed: {str(e)}",
+            "recommendation": {"action": "diligence", "confidence": "LOW", "reasoning": "Memo generation failed — manual review required.", "open_questions": []}
+        }

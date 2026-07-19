@@ -13,8 +13,8 @@ from tavily import TavilyClient
 from dotenv import load_dotenv
 
 load_dotenv()
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY", "dummy"))
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 PRODUCTHUNT_CLIENT_ID = os.getenv("PRODUCTHUNT_CLIENT_ID")
