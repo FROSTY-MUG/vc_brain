@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import {
   Radar, GitFork, Search, Zap, Globe, Activity, ExternalLink,
   TrendingUp, Code2, BookOpen, Trophy, RefreshCw, Loader2,
-  Rss, Filter, ChevronRight
+  Rss, Filter, ChevronRight, UserMinus, Brain, Users, Landmark
 } from "lucide-react";
 
 interface OutboundSignal {
@@ -27,6 +27,9 @@ const SOURCE_ICONS: Record<string, React.ElementType> = {
   arxiv: BookOpen,
   twitter: Activity,
   web: Globe,
+  stealth: UserMinus,
+  huggingface: Brain,
+  inbound: Rss,
 };
 
 const SOURCE_COLORS: Record<string, { text: string; bg: string; border: string }> = {
@@ -36,6 +39,9 @@ const SOURCE_COLORS: Record<string, { text: string; bg: string; border: string }
   arxiv:        { text: "text-purple-400",  bg: "bg-purple-500/10",  border: "border-purple-500/20" },
   twitter:      { text: "text-sky-400",     bg: "bg-sky-500/10",     border: "border-sky-500/20"    },
   web:          { text: "text-white/40",    bg: "bg-white/5",        border: "border-white/10"      },
+  stealth:      { text: "text-rose-400",    bg: "bg-rose-500/10",    border: "border-rose-500/20"   },
+  huggingface:  { text: "text-yellow-400",  bg: "bg-yellow-500/10",  border: "border-yellow-500/20" },
+  inbound:      { text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
 };
 
 const MOCK_SIGNALS: OutboundSignal[] = [
@@ -76,12 +82,46 @@ const MOCK_SIGNALS: OutboundSignal[] = [
   },
 ];
 
+interface PipelineRow {
+  id: string;
+  name: string;
+  provenance: string;
+  provenance_label: string;
+  status: string;
+  status_label: string;
+  scores: { founder?: number; market?: number; idea?: number } | null;
+  signal_strength: number | null;
+  date: string;
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  discovered: "bg-white/5 border-white/15 text-white/60",
+  screening: "bg-blue-500/10 border-blue-500/30 text-blue-400",
+  diligence: "bg-amber-500/10 border-amber-500/30 text-amber-400",
+  deploy: "bg-green-500/10 border-green-500/30 text-green-400",
+  watch: "bg-indigo-500/10 border-indigo-500/30 text-indigo-400",
+  passed: "bg-white/5 border-white/10 text-white/35",
+  attention: "bg-red-500/10 border-red-500/30 text-red-400",
+};
+
+const MOCK_PIPELINE: PipelineRow[] = [
+  { id: "p1", name: "edge-llm-runtime", provenance: "github", provenance_label: "GitHub spike", status: "diligence", status_label: "In diligence", scores: { founder: 88, market: 74, idea: 81 }, signal_strength: null, date: new Date(Date.now() - 3 * 3600000).toISOString() },
+  { id: "p2", name: "Flowbit AI", provenance: "inbound", provenance_label: "Applied directly", status: "screening", status_label: "In automatic screening", scores: null, signal_strength: null, date: new Date(Date.now() - 6 * 3600000).toISOString() },
+  { id: "p3", name: "MedScan", provenance: "devpost", provenance_label: "Hackathon win", status: "deploy", status_label: "Ready to deploy", scores: { founder: 91, market: 82, idea: 86 }, signal_strength: null, date: new Date(Date.now() - 20 * 3600000).toISOString() },
+  { id: "p4", name: "quant-kernels (S. Okafor)", provenance: "huggingface", provenance_label: "Hugging Face MVP", status: "discovered", status_label: "Discovered by radar", scores: null, signal_strength: 84, date: new Date(Date.now() - 26 * 3600000).toISOString() },
+  { id: "p5", name: "carbonledger", provenance: "stealth", provenance_label: "Stealth break", status: "passed", status_label: "Passed", scores: { founder: 45, market: 60, idea: 40 }, signal_strength: null, date: new Date(Date.now() - 50 * 3600000).toISOString() },
+];
+
 const CHANNELS = [
   { id: "github", label: "GitHub Trending", icon: GitFork, active: true, count: 12 },
   { id: "producthunt", label: "ProductHunt Launches", icon: Zap, active: true, count: 5 },
   { id: "devpost", label: "Devpost Hackathons", icon: Trophy, active: true, count: 3 },
   { id: "arxiv", label: "arXiv / Papers", icon: BookOpen, active: false, count: 8 },
   { id: "accelerators", label: "Accelerator Cohorts", icon: Rss, active: false, count: 0 },
+  { id: "stealth", label: "Stealth Breaks (LinkedIn/X title shifts)", icon: UserMinus, active: true, count: 0 },
+  { id: "huggingface", label: "Hugging Face Spaces", icon: Brain, active: true, count: 0 },
+  { id: "cofounder", label: "Co-Founder Matching (YC / Antler)", icon: Users, active: false, count: 0 },
+  { id: "incorporation", label: "Incorporation Filings (Stripe Atlas / DE C-Corp)", icon: Landmark, active: false, count: 0 },
 ];
 
 function StrengthBar({ value }: { value: number }) {
@@ -100,10 +140,24 @@ function StrengthBar({ value }: { value: number }) {
 export default function SourcingApp() {
   const [now] = useState(() => Date.now());
   const [signals, setSignals] = useState<OutboundSignal[]>(MOCK_SIGNALS);
+  const [pipeline, setPipeline] = useState<PipelineRow[]>(MOCK_PIPELINE);
   const [scanning, setScanning] = useState(false);
   const [filter, setFilter] = useState("");
-  const [activeTab, setActiveTab] = useState<"signals" | "channels">("signals");
+  const [activeTab, setActiveTab] = useState<"pipeline" | "signals" | "channels">("pipeline");
   const [sentOutreach, setSentOutreach] = useState<Set<string>>(new Set());
+
+  const loadPipeline = async () => {
+    const r = await fetch(`${API}/api/sourcing/pipeline`).catch(() => null);
+    if (r?.ok) {
+      const data = await r.json();
+      if (Array.isArray(data?.rows) && data.rows.length > 0) setPipeline(data.rows);
+    }
+  };
+
+  useEffect(() => {
+    loadPipeline();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleScan = async () => {
     setScanning(true);
@@ -119,6 +173,7 @@ export default function SourcingApp() {
         const list = data?.signals || data;
         if (Array.isArray(list) && list.length > 0) setSignals(list);
       }
+      await loadPipeline();
     } finally {
       setScanning(false);
     }
@@ -176,19 +231,71 @@ export default function SourcingApp() {
 
         {/* Tabs */}
         <div className="flex gap-1">
-          {(["signals", "channels"] as const).map(tab => (
+          {(["pipeline", "signals", "channels"] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-1.5 rounded-lg text-sm capitalize transition-colors ${activeTab === tab ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400" : "text-white/40 hover:text-white/60"}`}
             >
-              {tab === "signals" ? `Signals (${signals.length})` : "Channels"}
+              {tab === "pipeline" ? `Pipeline (${pipeline.length})` : tab === "signals" ? `Raw Signals (${signals.length})` : "Channels"}
             </button>
           ))}
         </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 space-y-3">
+        {activeTab === "pipeline" && (
+          <div>
+            <p className="text-xs text-white/30 mb-3">
+              Every startup in one funnel — whether it applied or the radar found it. &ldquo;How found&rdquo; shows the path in.
+            </p>
+            <div className="overflow-x-auto rounded-xl border border-white/5">
+              <table className="w-full text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-wider text-white/30 bg-white/3 text-left">
+                    <th className="py-2.5 px-3 font-medium">Startup</th>
+                    <th className="py-2.5 px-3 font-medium">How found</th>
+                    <th className="py-2.5 px-3 font-medium">Status</th>
+                    <th className="py-2.5 px-3 font-medium">Scores F · M · I</th>
+                    <th className="py-2.5 px-3 font-medium text-right">Age</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pipeline.map(row => {
+                    const SrcIcon = SOURCE_ICONS[row.provenance] || Globe;
+                    const srcColor = SOURCE_COLORS[row.provenance] || SOURCE_COLORS.web;
+                    const pill = STATUS_STYLES[row.status] || STATUS_STYLES.discovered;
+                    return (
+                      <tr key={row.id} className="border-t border-white/5 hover:bg-white/3 transition-colors">
+                        <td className="py-2.5 px-3 font-semibold text-white/90">{row.name}</td>
+                        <td className="py-2.5 px-3">
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${srcColor.bg} border ${srcColor.border} ${srcColor.text}`}>
+                            <SrcIcon size={11} />
+                            {row.provenance_label}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs border ${pill}`}>
+                            {row.status_label}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-xs text-white/60">
+                          {row.scores
+                            ? `${row.scores.founder ?? "—"} · ${row.scores.market ?? "—"} · ${row.scores.idea ?? "—"}`
+                            : row.signal_strength != null
+                              ? <span className="text-white/35">signal {Math.round(row.signal_strength)}</span>
+                              : <span className="text-white/25">pending</span>}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-xs text-white/30 whitespace-nowrap">{timeAgo(row.date)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === "signals" && (
           <>
             {/* Search */}

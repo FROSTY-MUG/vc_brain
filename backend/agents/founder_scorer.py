@@ -71,18 +71,25 @@ def score_founders(founders: list, research_data: dict) -> list:
         )
         try:
             score = score_founder(founder_research)
+            if "error" in score:
+                raise ValueError(score["error"])
+            score["scoring_status"] = "ok"
         except Exception as e:
+            # A failed LLM call is a data gap, not evidence of a first-time
+            # founder — never label it cold-start.
             print(f"Founder scoring failed for {name}: {e}")
             score = {
-                "overall_score": 50,
-                "execution_velocity": 50,
-                "domain_expertise": 50,
-                "resilience_history": 50,
-                "confidence": 0.5,
-                "data_completeness": 0.3,
-                "trend": "stable",
+                "overall_score": 0,
+                "execution_velocity": 0,
+                "domain_expertise": 0,
+                "resilience_history": 0,
+                "confidence": 0.0,
+                "data_completeness": 0.0,
+                "trend": "unknown",
                 "trend_delta": 0.0,
-                "is_cold_start": True
+                "is_cold_start": False,
+                "scoring_status": "failed",
+                "error": str(e),
             }
         score["name"] = name
         scores.append(score)

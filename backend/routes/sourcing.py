@@ -7,6 +7,9 @@ from utils.llm import get_llm_client, get_model_name
 import db
 from services.sourcing_scanners import (
     scan_github,
+    scan_github_embryonic,
+    scan_huggingface,
+    scan_stealth,
     scan_arxiv,
     scan_product_hunt,
     scan_devpost,
@@ -16,6 +19,95 @@ from services.sourcing_scanners import (
 router = APIRouter()
 
 openai_client = get_llm_client()
+
+# ── Unified pipeline view ──
+# One funnel for the investor: every startup appears once, whether it applied
+# (inbound) or was discovered (outbound). Provenance is a column, not a silo.
+
+_PROVENANCE_LABELS = {
+    "inbound": "Applied directly",
+    "github": "GitHub spike",
+    "huggingface": "Hugging Face MVP",
+    "stealth": "Stealth break",
+    "arxiv": "arXiv paper",
+    "producthunt": "ProductHunt launch",
+    "devpost": "Hackathon win",
+    "hackathon": "Hackathon win",
+}
+
+_SIGNAL_TYPE_LABELS = {
+    "embryonic_spike": "GitHub spike",
+    "trending_repository": "GitHub trending",
+    "mvp_space": "Hugging Face MVP",
+    "stealth_break": "Stealth break",
+    "product_launch": "ProductHunt launch",
+    "hackathon_winner": "Hackathon win",
+    "academic_breakthrough": "arXiv paper",
+}
+
+def _application_status(app: dict, scores: dict) -> tuple:
+    """Map raw status + recommendation to a friendly (key, label) pair."""
+    if app.get("status") == "failed":
+        return ("attention", "Screening failed — needs review")
+    rec = (scores or {}).get("recommendation", "")
+    if rec == "deploy":
+        return ("deploy", "Ready to deploy")
+    if rec == "pass":
+        return ("passed", "Passed")
+    if rec == "watch":
+        return ("watch", "On watchlist")
+    if rec == "diligence" or app.get("status") == "diligence":
+        return ("diligence", "In diligence")
+    return ("screening", "In automatic screening")
+
+@router.get("/pipeline")
+async def get_pipeline():
+    """Unified dealflow: applications (any origin) plus not-yet-imported signals."""
+    try:
+        rows = []
+        scores_by_app = {s.get("application_id"): s for s in db.get_all_opportunity_scores()}
+
+        for app in db.get_all_applications():
+            source_type = app.get("source_type") or "inbound"
+            channel = source_type.replace("outbound_", "") if source_type.startswith("outbound_") else "inbound"
+            scores = scores_by_app.get(app.get("id")) or {}
+            status_key, status_label = _application_status(app, scores)
+            rows.append({
+                "id": app.get("id"),
+                "name": (app.get("startups") or {}).get("name") or "Unknown",
+                "provenance": channel,
+                "provenance_label": _PROVENANCE_LABELS.get(channel, channel.title()),
+                "status": status_key,
+                "status_label": status_label,
+                "scores": {
+                    "founder": scores.get("founder_score"),
+                    "market": scores.get("market_score"),
+                    "idea": scores.get("idea_score"),
+                } if scores else None,
+                "signal_strength": None,
+                "date": app.get("submitted_at", ""),
+            })
+
+        for sig in db.get_all_outbound_signals():
+            if sig.get("founder_id"):
+                continue  # already imported → shown via its application row
+            channel = sig.get("source", "web")
+            rows.append({
+                "id": sig.get("id"),
+                "name": sig.get("title", "Unknown"),
+                "provenance": channel,
+                "provenance_label": _SIGNAL_TYPE_LABELS.get(sig.get("signal_type", ""), _PROVENANCE_LABELS.get(channel, channel.title())),
+                "status": "discovered",
+                "status_label": "Discovered by radar",
+                "scores": None,
+                "signal_strength": sig.get("strength"),
+                "date": sig.get("discovered_at", ""),
+            })
+
+        rows.sort(key=lambda r: r.get("date") or "", reverse=True)
+        return {"rows": rows, "total": len(rows)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/outbound/signals")
 async def get_outbound_signals():
@@ -34,7 +126,11 @@ async def trigger_outbound_scan(data: dict):
     signals_scanned = []
     try:
         if source == "github":
-            signals_scanned = scan_github()
+            signals_scanned = scan_github() + scan_github_embryonic()
+        elif source == "huggingface":
+            signals_scanned = scan_huggingface()
+        elif source == "stealth":
+            signals_scanned = scan_stealth()
         elif source == "arxiv":
             signals_scanned = scan_arxiv()
         elif source == "producthunt":
@@ -43,6 +139,9 @@ async def trigger_outbound_scan(data: dict):
             signals_scanned = scan_devpost()
         elif source == "all":
             signals_scanned.extend(scan_github())
+            signals_scanned.extend(scan_github_embryonic())
+            signals_scanned.extend(scan_huggingface())
+            signals_scanned.extend(scan_stealth())
             signals_scanned.extend(scan_arxiv())
             signals_scanned.extend(scan_product_hunt())
             signals_scanned.extend(scan_devpost())

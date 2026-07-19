@@ -23,6 +23,7 @@ load_dotenv()
 class AgentState(TypedDict):
     app_id: str
     raw_text: str
+    founder_links: Optional[dict]  # name/linkedin_url/github_url from the application form
     company_name: Optional[str]
     founders: Optional[List[dict]]
     extracted_claims: Optional[List[dict]]
@@ -47,6 +48,29 @@ def _log_step(state: AgentState, agent: str, action: str, detail: str = "", stat
         "detail": detail,
         "status": status
     })
+
+def _attach_founder_links(state: AgentState) -> None:
+    """Attach the LinkedIn/GitHub URLs from the application form to the
+    matching extracted founder (by name, else the first one)."""
+    links = state.get("founder_links") or {}
+    if not (links.get("linkedin_url") or links.get("github_url")):
+        return
+    founders = state.get("founders") or []
+    form_name = (links.get("name") or "").strip().lower()
+    target = None
+    if form_name:
+        target = next((f for f in founders if f.get("name", "").strip().lower() == form_name), None)
+    if target is None and founders:
+        target = founders[0]
+    if target is None:
+        target = {"name": links.get("name") or "Unknown Founder"}
+        founders.append(target)
+        state["founders"] = founders
+    if links.get("linkedin_url"):
+        target["linkedin_url"] = links["linkedin_url"]
+    if links.get("github_url"):
+        target["github_url"] = links["github_url"]
+
 
 # ==========================================
 # 2. Pydantic Models for Extraction
@@ -87,6 +111,7 @@ def extract_node(state: AgentState) -> AgentState:
         result = llm_with_tools.invoke(prompt)
         state["company_name"] = result.company_name
         state["founders"] = [{"name": f} for f in result.founders]
+        _attach_founder_links(state)
         state["extracted_claims"] = [c.model_dump() for c in result.claims]
         state["startup_info"] = {"sector": result.sector, "geography": result.geography, "stage": result.stage}
         _log_step(state, "Extractor", "Extraction complete",
@@ -94,6 +119,7 @@ def extract_node(state: AgentState) -> AgentState:
     except Exception as e:
         print(f"Extraction error: {e}")
         state["extracted_claims"] = []
+        _attach_founder_links(state)
         _log_step(state, "Extractor", "Extraction failed", str(e), "failed")
     return state
 
@@ -263,10 +289,11 @@ def build_pipeline():
 
 app_pipeline = build_pipeline()
 
-def run_application_pipeline(raw_text: str, app_id: str):
+def run_application_pipeline(raw_text: str, app_id: str, founder_links: dict = None):
     initial_state = {
         "app_id": app_id,
         "raw_text": raw_text,
+        "founder_links": founder_links,
         "company_name": None,
         "founders": None,
         "extracted_claims": None,

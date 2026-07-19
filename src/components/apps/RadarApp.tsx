@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import {
   Globe, Radar, Zap, Activity, TrendingUp, Brain, Network,
   GitFork, BookOpen, Trophy, ExternalLink, ChevronRight, ArrowUp,
-  BarChart3, Clock, CheckCircle2
+  BarChart3, Clock, CheckCircle2, Ghost, Terminal, Users, Landmark
 } from "lucide-react";
 
 /* 
@@ -22,24 +22,29 @@ interface Channel {
   deals: number;   // how many converted
   color: string;
   textColor: string;
+  barColor: string; // must be a literal Tailwind class — dynamically built names don't get generated
   x: number; // position in radar
   y: number;
 }
 
 const CHANNELS: Channel[] = [
-  { id: "github", name: "GitHub Trending", icon: GitFork, signals: 34, quality: 78, deals: 3, color: "bg-emerald-500/20", textColor: "text-emerald-400", x: 50, y: 15 },
-  { id: "devpost", name: "Devpost", icon: Trophy, signals: 12, quality: 82, deals: 2, color: "bg-blue-500/20", textColor: "text-blue-400", x: 78, y: 35 },
-  { id: "arxiv", name: "arXiv Papers", icon: BookOpen, signals: 8, quality: 88, deals: 1, color: "bg-purple-500/20", textColor: "text-purple-400", x: 85, y: 65 },
-  { id: "yc", name: "YC / Accelerators", icon: Zap, signals: 5, quality: 91, deals: 1, color: "bg-amber-500/20", textColor: "text-amber-400", x: 60, y: 85 },
-  { id: "ph", name: "ProductHunt", icon: Activity, signals: 18, quality: 69, deals: 0, color: "bg-orange-500/20", textColor: "text-orange-400", x: 25, y: 75 },
-  { id: "twitter", name: "X / Twitter", icon: Brain, signals: 22, quality: 64, deals: 0, color: "bg-sky-500/20", textColor: "text-sky-400", x: 15, y: 45 },
+  { id: "github", name: "GitHub Trending", icon: GitFork, signals: 34, quality: 78, deals: 3, color: "bg-emerald-500/20", textColor: "text-emerald-400", barColor: "bg-emerald-400", x: 50, y: 15 },
+  { id: "stealth", name: "Stealth Breaks", icon: Ghost, signals: 42, quality: 94, deals: 2, color: "bg-indigo-500/20", textColor: "text-indigo-400", barColor: "bg-indigo-400", x: 40, y: 30 },
+  { id: "embryonic", name: "HF Tech Spikes", icon: Terminal, signals: 15, quality: 85, deals: 1, color: "bg-fuchsia-500/20", textColor: "text-fuchsia-400", barColor: "bg-fuchsia-400", x: 70, y: 20 },
+  { id: "devpost", name: "Devpost", icon: Trophy, signals: 12, quality: 82, deals: 2, color: "bg-blue-500/20", textColor: "text-blue-400", barColor: "bg-blue-400", x: 78, y: 35 },
+  { id: "cofounder", name: "Co-Founder Matching", icon: Users, signals: 28, quality: 72, deals: 0, color: "bg-rose-500/20", textColor: "text-rose-400", barColor: "bg-rose-400", x: 30, y: 60 },
+  { id: "arxiv", name: "arXiv Papers", icon: BookOpen, signals: 8, quality: 88, deals: 1, color: "bg-purple-500/20", textColor: "text-purple-400", barColor: "bg-purple-400", x: 85, y: 65 },
+  { id: "yc", name: "YC / Accelerators", icon: Zap, signals: 5, quality: 91, deals: 1, color: "bg-amber-500/20", textColor: "text-amber-400", barColor: "bg-amber-400", x: 60, y: 85 },
+  { id: "incorporation", name: "Delaware Registry", icon: Landmark, signals: 105, quality: 55, deals: 1, color: "bg-slate-500/20", textColor: "text-slate-400", barColor: "bg-slate-400", x: 80, y: 80 },
+  { id: "ph", name: "ProductHunt", icon: Activity, signals: 18, quality: 69, deals: 0, color: "bg-orange-500/20", textColor: "text-orange-400", barColor: "bg-orange-400", x: 25, y: 75 },
+  { id: "twitter", name: "X / Twitter", icon: Brain, signals: 22, quality: 64, deals: 0, color: "bg-sky-500/20", textColor: "text-sky-400", barColor: "bg-sky-400", x: 15, y: 45 },
 ];
 
 const SUGGESTIONS = [
-  { channel: "MLOps Community Slack", reason: "High-quality technical founders — 0 current coverage", priority: "high" },
-  { channel: "HuggingFace Trending Spaces", reason: "AI founders with real traction signal, rarely monitored by VCs", priority: "high" },
-  { channel: "EU Accelerator Cohorts (e.g. HTGF, Axel Springer)", reason: "Strong European founders missed by US-centric tools", priority: "medium" },
-  { channel: "PhD LinkedIn posts (AI/ML departments)", reason: "Pre-company founders with deep domain expertise", priority: "medium" },
+  { channel: "CrustData / Launch Gravity", reason: "Automated tracking of elite engineer title changes to 'Stealth' — highly predictive.", priority: "high" },
+  { channel: "Delaware C-Corp Registry", reason: "Monitor daily legal incorporations combined with Stripe Atlas data.", priority: "high" },
+  { channel: "YC Co-Founder Matching", reason: "Catch high-intent technical talent before they even have an idea.", priority: "medium" },
+  { channel: "Hugging Face Spaces", reason: "AI founders with raw embryonic prototypes showing early developer traction.", priority: "medium" },
 ];
 
 const RECENT_CONVERSIONS = [
@@ -168,7 +173,7 @@ export default function RadarApp() {
                       <p className="font-semibold text-white text-sm">{ch.name}</p>
                       <div className="flex items-center gap-3 mt-1">
                         <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                          <div className={`h-full ${ch.textColor.replace("text-", "bg-")}`} style={{ width: `${ch.quality}%` }} />
+                          <div className={`h-full ${ch.barColor}`} style={{ width: `${ch.quality}%` }} />
                         </div>
                         <span className="text-xs text-white/30">{ch.quality} quality</span>
                       </div>

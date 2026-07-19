@@ -83,16 +83,29 @@ function CitedText({ text }: { text: string }) {
   const parts = text.split(/(\[Source:[^\]]+\])/g);
   return (
     <span>
-      {parts.map((part, i) =>
-        part.startsWith("[Source:") ? (
-          <span key={i} className="inline-flex items-center gap-1 mx-0.5 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-mono">
-            <ExternalLink size={9} />
-            {part.replace(/^\[Source:\s*/, "").replace(/\]$/, "")}
-          </span>
-        ) : (
-          <span key={i}>{part}</span>
-        )
-      )}
+      {parts.map((part, i) => {
+        if (part.startsWith("[Source:")) {
+          const sourceName = part.replace(/^\[Source:\s*/, "").replace(/\]$/, "");
+          const isTranscript = sourceName.toLowerCase() === "call transcript";
+          
+          if (isTranscript) {
+            return (
+              <a href="#call-transcript" key={i} className="inline-flex items-center gap-1 mx-0.5 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 text-xs font-mono transition-colors cursor-pointer">
+                <ExternalLink size={9} />
+                {sourceName}
+              </a>
+            );
+          }
+          
+          return (
+            <span key={i} className="inline-flex items-center gap-1 mx-0.5 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-mono">
+              <ExternalLink size={9} />
+              {sourceName}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
     </span>
   );
 }
@@ -166,14 +179,14 @@ function SectionContent({ value }: { value: unknown }) {
 /** Special renderer for the SWOT section */
 function SwotSection({ swot }: { swot: Record<string, any[]> }) {
   const quadrants = [
-    { key: "strengths", label: "Strengths", color: "text-green-400", bg: "bg-green-500/5 border-green-500/10", hoverBg: "hover:bg-green-500/10" },
-    { key: "weaknesses", label: "Weaknesses", color: "text-red-400", bg: "bg-red-500/5 border-red-500/10", hoverBg: "hover:bg-red-500/10" },
-    { key: "opportunities", label: "Opportunities", color: "text-blue-400", bg: "bg-blue-500/5 border-blue-500/10", hoverBg: "hover:bg-blue-500/10" },
-    { key: "threats", label: "Threats / Risks", color: "text-orange-400", bg: "bg-orange-500/5 border-orange-500/10", hoverBg: "hover:bg-orange-500/10" },
+    { key: "strengths", label: "Strengths", color: "text-green-400", dot: "bg-green-400", bg: "bg-green-500/5 border-green-500/10", hoverBg: "hover:bg-green-500/10" },
+    { key: "weaknesses", label: "Weaknesses", color: "text-red-400", dot: "bg-red-400", bg: "bg-red-500/5 border-red-500/10", hoverBg: "hover:bg-red-500/10" },
+    { key: "opportunities", label: "Opportunities", color: "text-blue-400", dot: "bg-blue-400", bg: "bg-blue-500/5 border-blue-500/10", hoverBg: "hover:bg-blue-500/10" },
+    { key: "threats", label: "Threats / Risks", color: "text-orange-400", dot: "bg-orange-400", bg: "bg-orange-500/5 border-orange-500/10", hoverBg: "hover:bg-orange-500/10" },
   ];
   return (
     <div className="grid grid-cols-2 gap-3">
-      {quadrants.map(({ key, label, color, bg, hoverBg }, idx) => {
+      {quadrants.map(({ key, label, color, dot, bg, hoverBg }, idx) => {
         const isBottomRow = idx >= 2;
         return (
           <div key={key} className={`${bg} border rounded-xl p-3 flex flex-col h-full`}>
@@ -190,7 +203,7 @@ function SwotSection({ swot }: { swot: Record<string, any[]> }) {
                   return (
                     <li key={i} className={`relative group rounded-md p-1.5 -ml-1.5 transition-colors ${hasDetails ? hoverBg : ''}`}>
                       <div className="flex items-start gap-1.5">
-                        <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${color.replace("text-", "bg-")}`} />
+                        <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
                         <div className="text-xs text-white/70 leading-relaxed flex-1">
                           <CitedText text={statement} />
                           {conflicts.length > 0 && (
@@ -240,15 +253,21 @@ function SwotSection({ swot }: { swot: Record<string, any[]> }) {
   );
 }
 
-const DILIGENCE_CATEGORIES = [
+interface DiligenceSource {
+  label: string;
+  source: string;
+  url?: string;
+}
+
+const DILIGENCE_CATEGORIES: { id: string; title: string; desc: string; sources: DiligenceSource[] }[] = [
   {
     id: "financial",
     title: "Financial",
     desc: "In-depth review of financial statements, tax compliance, revenue streams, and liabilities to verify economic health.",
     sources: [
-      "Income Statement (Q3 2023) [Source: Data Room]",
-      "Tax Returns (2022) [Source: IRS/Founders]",
-      "Revenue Projections [Source: Financial Model v2.xlsx]"
+      { label: "Income Statement (Q3 2023)", source: "Data Room", url: "https://dataroom.vcbrain.app/financials/income-statement-q3-2023" },
+      { label: "Tax Returns (2022)", source: "IRS/Founders", url: "https://dataroom.vcbrain.app/financials/tax-returns-2022" },
+      { label: "Revenue Projections", source: "Financial Model v2.xlsx", url: "https://dataroom.vcbrain.app/financials/financial-model-v2" }
     ]
   },
   {
@@ -256,9 +275,9 @@ const DILIGENCE_CATEGORIES = [
     title: "Legal and Regulatory",
     desc: "Examination of contracts, intellectual property, licensing, and any pending or potential litigation to avoid inheriting legal liabilities.",
     sources: [
-      "IP Assignment Agreements [Source: Data Room - Legal]",
-      "Employment Contracts [Source: HR Portal]",
-      "Pending Litigation Search [Source: Public Records]"
+      { label: "IP Assignment Agreements", source: "Data Room - Legal", url: "https://dataroom.vcbrain.app/legal/ip-assignments" },
+      { label: "Employment Contracts", source: "HR Portal", url: "https://dataroom.vcbrain.app/legal/employment-contracts" },
+      { label: "Pending Litigation Search", source: "Public Records (PACER)", url: "https://pacer.uscourts.gov/" }
     ]
   },
   {
@@ -266,9 +285,9 @@ const DILIGENCE_CATEGORIES = [
     title: "Operational",
     desc: "Assessment of business models, production capabilities, supply chains, and logistical infrastructure.",
     sources: [
-      "Supply Chain Contracts [Source: Data Room]",
-      "Logistics Infrastructure Report [Source: Operations Review]",
-      "SLA Agreements [Source: Customer Contracts]"
+      { label: "Supply Chain Contracts", source: "Data Room", url: "https://dataroom.vcbrain.app/operations/supply-chain-contracts" },
+      { label: "Logistics Infrastructure Report", source: "Operations Review", url: "https://dataroom.vcbrain.app/operations/logistics-report" },
+      { label: "SLA Agreements", source: "Customer Contracts", url: "https://dataroom.vcbrain.app/operations/sla-agreements" }
     ]
   },
   {
@@ -276,9 +295,9 @@ const DILIGENCE_CATEGORIES = [
     title: "Human Resources",
     desc: "Evaluating a target company's workforce, including employee contracts, benefits, and pending workplace issues.",
     sources: [
-      "Employee Benefits Package [Source: HR System]",
-      "Turnover Rate Data [Source: Q3 HR Report]",
-      "Workplace Issue Logs [Source: Compliance Officer]"
+      { label: "Employee Benefits Package", source: "HR System", url: "https://dataroom.vcbrain.app/hr/benefits-package" },
+      { label: "Turnover Rate Data", source: "Q3 HR Report", url: "https://dataroom.vcbrain.app/hr/turnover-q3" },
+      { label: "Workplace Issue Logs", source: "Compliance Officer", url: "https://dataroom.vcbrain.app/hr/issue-logs" }
     ]
   },
   {
@@ -286,9 +305,9 @@ const DILIGENCE_CATEGORIES = [
     title: "Environmental/Technical",
     desc: "Reviewing ecological compliance, sustainability goals, and the condition of IT networks or physical properties.",
     sources: [
-      "Sustainability Report 2023 [Source: Public ESG Filing]",
-      "IT Security Audit [Source: External Penetration Test]",
-      "Physical Property Inspection [Source: Surveyor Report]"
+      { label: "Sustainability Report 2023", source: "Public ESG Filing (SEC EDGAR)", url: "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany" },
+      { label: "IT Security Audit", source: "External Penetration Test", url: "https://dataroom.vcbrain.app/technical/pentest-report" },
+      { label: "Physical Property Inspection", source: "Surveyor Report", url: "https://dataroom.vcbrain.app/technical/surveyor-report" }
     ]
   }
 ];
@@ -311,7 +330,23 @@ function DiligenceCategoryBox({ category }: { category: typeof DILIGENCE_CATEGOR
           <ul className="space-y-1">
             {category.sources.map((s, i) => (
               <li key={i} className="text-xs text-white/70 flex items-start gap-1.5">
-                <span className="text-white/30">•</span> {s}
+                <span className="text-white/30">•</span>
+                <span>
+                  {s.label}{" "}
+                  {s.url ? (
+                    <a
+                      href={s.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="text-cyan-400/80 hover:text-cyan-300 hover:underline"
+                    >
+                      [Source: {s.source} ↗]
+                    </a>
+                  ) : (
+                    <span className="text-white/50">[Source: {s.source}]</span>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
@@ -321,41 +356,121 @@ function DiligenceCategoryBox({ category }: { category: typeof DILIGENCE_CATEGOR
   );
 }
 
+/** Derive the reasons behind the system's confidence level from the memo itself.
+    Prefers backend-provided `confidence_factors`; otherwise inspects the memo for
+    missing data, undisclosed sections, and contradicted claims. */
+function deriveConfidenceFactors(rec: Record<string, unknown>, memo?: Record<string, unknown> | null): string[] {
+  const provided = rec?.confidence_factors as string[] | undefined;
+  if (Array.isArray(provided) && provided.length > 0) return provided;
+  const factors: string[] = [];
+  if (memo) {
+    const contentSections = SECTIONS.filter(s => s.key !== "recommendation");
+    const missing = contentSections
+      .filter(s => { const v = memo[s.key]; return v === null || v === undefined || v === "" || hasMissingFlag(v); })
+      .map(s => s.label);
+    if (missing.length > 0) {
+      factors.push(`Missing or incomplete data: ${missing.slice(0, 4).join(", ")}${missing.length > 4 ? ` +${missing.length - 4} more` : ""}`);
+    }
+    const undisclosed = contentSections
+      .filter(s => memo[s.key] && isNotDisclosed(memo[s.key]))
+      .map(s => s.label);
+    if (undisclosed.length > 0) {
+      factors.push(`Not disclosed by founders: ${undisclosed.slice(0, 3).join(", ")}${undisclosed.length > 3 ? ` +${undisclosed.length - 3} more` : ""}`);
+    }
+    const trust = memo.trust_summary as { contradictions?: number; avg_trust_score?: number } | undefined;
+    if (trust?.contradictions && trust.contradictions > 0) {
+      factors.push(`${trust.contradictions} claim(s) contradicted by web evidence`);
+    }
+    if (typeof trust?.avg_trust_score === "number") {
+      factors.push(`Average claim trust score: ${trust.avg_trust_score}/100`);
+    }
+  }
+  if (factors.length === 0) {
+    factors.push("Based on overall data completeness and verification coverage.");
+  }
+  return factors;
+}
+
 /** Recommendation banner */
-function RecommendationBanner({ rec }: { rec: Record<string, unknown> }) {
+function RecommendationBanner({ rec, memo }: { rec: Record<string, unknown>; memo?: Record<string, unknown> | null }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const action = (rec?.action as string || "diligence").toLowerCase();
-  const confidence = (rec?.confidence as string || "LOW");
+  const confidence = (rec?.confidence as string || "LOW").toUpperCase();
   const reasoning = rec?.reasoning as string || "";
   const openQs = rec?.open_questions as string[] || [];
+  const confidenceFactors = deriveConfidenceFactors(rec, memo);
 
-  const config: Record<string, { bg: string; border: string; text: string; icon: React.ElementType; label: string }> = {
-    deploy: { bg: "bg-green-500/10", border: "border-green-500/30", text: "text-green-400", icon: CheckCircle2, label: "DEPLOY" },
-    diligence: { bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-400", icon: Eye, label: "DILIGENCE" },
-    watch: { bg: "bg-blue-500/10", border: "border-blue-500/30", text: "text-blue-400", icon: Eye, label: "WATCH" },
-    pass: { bg: "bg-red-500/10", border: "border-red-500/30", text: "text-red-400", icon: XCircle, label: "PASS" },
+  const config: Record<string, { bg: string; border: string; text: string; icon: React.ElementType; label: string; evaluation: string; desc: string }> = {
+    deploy: {
+      bg: "bg-green-500/10", border: "border-green-500/30", text: "text-green-400", icon: CheckCircle2,
+      label: "Deploy Capital", evaluation: "Strong",
+      desc: "All three axes clear the bar and key claims verify — ready for an investment decision.",
+    },
+    diligence: {
+      bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-400", icon: Eye,
+      label: "Proceed to Diligence", evaluation: "Promising",
+      desc: "Promising signals, but key claims need verification before capital is deployed.",
+    },
+    watch: {
+      bg: "bg-blue-500/10", border: "border-blue-500/30", text: "text-blue-400", icon: Eye,
+      label: "Keep on Watchlist", evaluation: "Mixed",
+      desc: "Not ready yet — monitor progress and revisit when the signals strengthen.",
+    },
+    pass: {
+      bg: "bg-red-500/10", border: "border-red-500/30", text: "text-red-400", icon: XCircle,
+      label: "Pass", evaluation: "Weak",
+      desc: "The opportunity does not meet the fund's bar on the current evidence.",
+    },
   };
   const cfg = config[action] || config.diligence;
   const Icon = cfg.icon;
+  const confidenceColor = confidence === "HIGH" ? "text-green-400" : confidence === "MEDIUM" ? "text-amber-400" : "text-red-400";
 
   return (
     <div className={`${cfg.bg} border ${cfg.border} rounded-2xl p-5 transition-all duration-300`}>
-      <div 
-        className="flex items-center justify-between cursor-pointer group mb-3"
+      {/* 1. Name */}
+      <div
+        className="flex items-center justify-between cursor-pointer group"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-3">
           <Icon size={24} className={cfg.text} />
-          <div>
-            <p className={`text-xl font-black ${cfg.text} tracking-tight`}>{cfg.label}</p>
-            <p className="text-xs text-white/30">Confidence: {confidence}</p>
-          </div>
+          <p className={`text-xl font-black ${cfg.text} tracking-tight`}>{cfg.label}</p>
         </div>
         <div className="p-2 rounded-full bg-black/10 group-hover:bg-black/20 text-white/50 transition-colors">
            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
       </div>
-      
+
+      {/* 2. Short description */}
+      <p className="text-sm text-white/60 leading-relaxed mt-1 mb-3">{cfg.desc}</p>
+
+      {/* 3. Evaluation + system confidence */}
+      <div className="flex items-center gap-4 flex-wrap border-t border-white/10 pt-3 mb-3">
+        <div className="text-xs text-white/40">
+          Evaluation: <span className={`font-bold ${cfg.text}`}>{cfg.evaluation}</span>
+        </div>
+        <div className="relative group/conf text-xs text-white/40 flex items-center gap-1 cursor-help">
+          System confidence: <span className={`font-bold ${confidenceColor}`}>{confidence}</span>
+          <HelpCircle size={11} className="text-white/30" />
+          {/* Hover tooltip: why this confidence level */}
+          <div className="absolute left-0 top-full mt-1.5 w-72 bg-[#1a1a1a] border border-white/10 rounded-lg p-3 shadow-2xl opacity-0 invisible group-hover/conf:opacity-100 group-hover/conf:visible transition-all duration-200 z-50 cursor-default">
+            <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">
+              Why {confidence.toLowerCase()} confidence?
+            </p>
+            <ul className="space-y-1">
+              {confidenceFactors.map((f, i) => (
+                <li key={i} className="text-xs text-white/60 leading-relaxed">• {f}</li>
+              ))}
+            </ul>
+            <p className="text-[10px] text-white/25 mt-2 pt-2 border-t border-white/5">
+              Confidence reflects how certain the system is in this recommendation — not the quality of the startup.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. The rest: reasoning, open questions, diligence categories */}
       {reasoning && (
         <p className="text-sm text-white/70 leading-relaxed mb-3">
           <CitedText text={reasoning} />
@@ -478,8 +593,8 @@ export default function MemoApp() {
                 statement: currentStatement + "\n\n[AI Call Analysis]\nFounder exhibited strong resilience during the stress-test questions. Communication was clear and direct, indicating high transparency. High conviction in the technical architecture, though slightly defensive when pressed on market size.",
                 factors: [
                   ...((currentTeam as any).factors || []),
-                  "High resilience and clarity (Call Analysis)",
-                  "Slightly defensive on market size (Call Analysis)"
+                  "High resilience and clarity [Source: Call Transcript]",
+                  "Slightly defensive on market size [Source: Call Transcript]"
                 ]
               };
 
@@ -489,11 +604,14 @@ export default function MemoApp() {
                 transcript: "[00:00] AI Agent: Hello! I'm calling on behalf of Hack Nation VC. Do you have a few minutes to dive into some questions we had after reviewing your materials?\n[00:08] Founder: Sure, I'm happy to chat.\n[00:11] AI Agent: Great. First, we noticed your revenue claims are currently zero, yet you emphasize high execution velocity. Can you walk me through the roadmap to monetization?\n[00:23] Founder: Absolutely. Right now we are focusing purely on user acquisition and infrastructure stability. Monetization is slated for Q4 once we hit critical mass...\n[00:45] AI Agent: I see. And regarding your market size, it seems highly competitive. How do you plan to differentiate?\n[00:52] Founder: Well, we believe our approach is fundamentally different. Our 4x performance gain is a moat in itself. (Tone shifts slightly defensive) We're not just another wrapper."
               };
             });
-            setUpdatedSections(new Set(["team_and_history"]));
+            setUpdatedSections(new Set(["team_and_history", "transcript"]));
+            new Audio('https://actions.google.com/sounds/v1/cartoon/magic_chime_bell.ogg').play().catch(()=>console.log('Audio blocked'));
           }, 1500);
         }, 2000);
       }, 3000);
     }, 1500);
+    // Play ringing sound when call starts
+    new Audio('https://actions.google.com/sounds/v1/communications/incoming_phone_call.ogg').play().catch(()=>console.log('Audio blocked'));
   };
 
   const toggleSection = (key: string) => {
@@ -665,8 +783,8 @@ export default function MemoApp() {
             </div>
 
             {/* Recommendation Banner — always at top */}
-            {memo.recommendation && (
-              <RecommendationBanner rec={memo.recommendation as Record<string, unknown>} />
+            {!!memo.recommendation && (
+              <RecommendationBanner rec={memo.recommendation as Record<string, unknown>} memo={memo} />
             )}
 
             {/* Sections */}
@@ -720,15 +838,22 @@ export default function MemoApp() {
             })}
             
             {/* Call Transcript Viewer */}
-            {memo.transcript && (
-              <div className="bg-white/2 border border-white/6 rounded-xl overflow-hidden mt-6 shadow-[0_0_20px_rgba(99,102,241,0.1)]">
-                <div className="w-full flex items-center gap-3 p-4 text-left border-b border-indigo-500/20 bg-indigo-500/5">
-                  <div className={`w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0`}>
-                    <FileAudio size={16} className="text-indigo-400" />
+            {!!memo.transcript && (
+              <div 
+                id="call-transcript" 
+                onMouseEnter={() => setUpdatedSections(prev => { const next = new Set(prev); next.delete('transcript'); return next; })}
+                className={`border rounded-xl overflow-hidden mt-6 transition-all duration-500 ${updatedSections.has('transcript') ? 'bg-indigo-500/5 border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.3)]' : 'bg-white/2 border-white/6 shadow-[0_0_20px_rgba(99,102,241,0.1)]'}`}
+              >
+                <div className="w-full flex items-center justify-between gap-3 p-4 border-b border-indigo-500/20 bg-indigo-500/5">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0`}>
+                      <FileAudio size={16} className="text-indigo-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-indigo-100 text-sm">Call Transcript (AI Agent)</span>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="font-semibold text-indigo-100 text-sm">Call Transcript (AI Agent)</span>
-                  </div>
+                  {updatedSections.has('transcript') && <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-indigo-500 text-white animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.5)]">New Transcript</span>}
                 </div>
                 <div className="p-5 font-mono text-[11px] text-white/60 whitespace-pre-wrap leading-relaxed bg-[#0a0a0f]">
                   {memo.transcript as string}

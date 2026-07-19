@@ -674,6 +674,13 @@ def get_scores_for_app(app_id: str) -> dict:
     result = sb.table("opportunity_scores").select("*").eq("application_id", app_id).execute()
     return result.data[0] if result.data else {}
 
+def get_all_opportunity_scores() -> list:
+    if _use_in_memory:
+        return _in_memory_db["opportunity_scores"]
+    sb = get_supabase()
+    result = sb.table("opportunity_scores").select("*").execute()
+    return result.data or []
+
 def get_all_outbound_signals() -> list:
     if _use_in_memory:
         return _in_memory_db["outbound_signals"]
