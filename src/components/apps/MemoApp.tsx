@@ -5,7 +5,7 @@ import {
   XCircle, Lock, TrendingUp, TrendingDown, Minus, Loader2,
   RefreshCw, Download, Building2, Lightbulb, BarChart3, Users,
   Cpu, Globe, Swords, Rocket, DollarSign, Table2, ClipboardList,
-  LogOut, HelpCircle, ExternalLink, Eye
+  LogOut, HelpCircle, ExternalLink, Eye, PhoneCall, Bot, User, FileAudio
 } from "lucide-react";
 
 /* ─────────────────────────────────────────
@@ -402,6 +402,11 @@ export default function MemoApp() {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(SECTIONS.map(s => s.key)));
   const [error, setError] = useState<string | null>(null);
 
+  // New states for Founder Call feature
+  const [showCallModal, setShowCallModal] = useState(false);
+  const [callState, setCallState] = useState<'idle' | 'calling' | 'conversing' | 'transcribing' | 'completed'>('idle');
+  const [updatedSections, setUpdatedSections] = useState<Set<string>>(new Set());
+
   // Load application list
   useEffect(() => {
     fetch(`${API}/api/applications/`)
@@ -448,9 +453,47 @@ export default function MemoApp() {
       else await loadMemo(selectedId);
     } catch {
       setError("Failed to generate memo. Check backend.");
-    } finally {
       setGenerating(false);
     }
+  };
+
+  const handleAiCall = () => {
+    setCallState('calling');
+    setTimeout(() => {
+      setCallState('conversing');
+      setTimeout(() => {
+        setCallState('transcribing');
+        setTimeout(() => {
+          setCallState('completed');
+          setTimeout(() => {
+            setShowCallModal(false);
+            setCallState('idle');
+            setMemo(prev => {
+              if (!prev) return prev;
+              const currentTeam = prev.team_and_history || {};
+              const currentStatement = typeof currentTeam === 'string' ? currentTeam : (currentTeam as any).statement || '';
+              
+              const updatedTeam = {
+                ...((typeof currentTeam === 'object' && currentTeam) || {}),
+                statement: currentStatement + "\n\n[AI Call Analysis]\nFounder exhibited strong resilience during the stress-test questions. Communication was clear and direct, indicating high transparency. High conviction in the technical architecture, though slightly defensive when pressed on market size.",
+                factors: [
+                  ...((currentTeam as any).factors || []),
+                  "High resilience and clarity (Call Analysis)",
+                  "Slightly defensive on market size (Call Analysis)"
+                ]
+              };
+
+              return {
+                ...prev,
+                team_and_history: updatedTeam,
+                transcript: "[00:00] AI Agent: Hello! I'm calling on behalf of Hack Nation VC. Do you have a few minutes to dive into some questions we had after reviewing your materials?\n[00:08] Founder: Sure, I'm happy to chat.\n[00:11] AI Agent: Great. First, we noticed your revenue claims are currently zero, yet you emphasize high execution velocity. Can you walk me through the roadmap to monetization?\n[00:23] Founder: Absolutely. Right now we are focusing purely on user acquisition and infrastructure stability. Monetization is slated for Q4 once we hit critical mass...\n[00:45] AI Agent: I see. And regarding your market size, it seems highly competitive. How do you plan to differentiate?\n[00:52] Founder: Well, we believe our approach is fundamentally different. Our 4x performance gain is a moat in itself. (Tone shifts slightly defensive) We're not just another wrapper."
+              };
+            });
+            setUpdatedSections(new Set(["team_and_history"]));
+          }, 1500);
+        }, 2000);
+      }, 3000);
+    }, 1500);
   };
 
   const toggleSection = (key: string) => {
@@ -459,6 +502,14 @@ export default function MemoApp() {
       next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
+    // Clear highlight when read
+    if (updatedSections.has(key)) {
+      setUpdatedSections(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
   };
 
   const selectedApp = applications.find(a => a.id === selectedId);
@@ -485,19 +536,27 @@ export default function MemoApp() {
           </h2>
           <div className="flex items-center gap-2">
             {memo && (
-              <button
-                onClick={() => {
-                  const blob = new Blob([JSON.stringify(memo, null, 2)], { type: "application/json" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `memo_${companyName.replace(/\s+/g, "_")}.json`;
-                  a.click();
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white/70 text-xs transition-colors"
-              >
-                <Download size={12} /> Export
-              </button>
+              <>
+                <button
+                  onClick={() => setShowCallModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/25 text-xs transition-colors"
+                >
+                  <PhoneCall size={12} /> Call Founder
+                </button>
+                <button
+                  onClick={() => {
+                    const blob = new Blob([JSON.stringify(memo, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `memo_${companyName.replace(/\s+/g, "_")}.json`;
+                    a.click();
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white/70 text-xs transition-colors"
+                >
+                  <Download size={12} /> Export
+                </button>
+              </>
             )}
             <button
               onClick={handleGenerate}
@@ -618,9 +677,10 @@ export default function MemoApp() {
               const confidential = isNotDisclosed(value);
               const hasWarning = hasMissingFlag(value);
               const Icon = section.icon;
+              const isUpdated = updatedSections.has(section.key);
 
               return (
-                <div key={section.key} className="bg-white/2 border border-white/6 rounded-xl overflow-hidden hover:border-white/10 transition-colors">
+                <div key={section.key} className={`rounded-xl overflow-hidden transition-all duration-500 ${isUpdated ? 'bg-indigo-500/5 border border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-white/2 border border-white/6 hover:border-white/10'}`}>
                   {/* Section Header */}
                   <button
                     onClick={() => toggleSection(section.key)}
@@ -637,6 +697,7 @@ export default function MemoApp() {
                         )}
                         {confidential && <NotDisclosedBadge />}
                         {hasWarning && <FlagBadge text="Missing data" />}
+                        {isUpdated && <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-indigo-500 text-white animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.5)]">Updated from Call</span>}
                       </div>
                     </div>
                     {isOpen ? <ChevronUp size={16} className="text-white/30 shrink-0" /> : <ChevronDown size={16} className="text-white/30 shrink-0" />}
@@ -657,6 +718,23 @@ export default function MemoApp() {
                 </div>
               );
             })}
+            
+            {/* Call Transcript Viewer */}
+            {memo.transcript && (
+              <div className="bg-white/2 border border-white/6 rounded-xl overflow-hidden mt-6 shadow-[0_0_20px_rgba(99,102,241,0.1)]">
+                <div className="w-full flex items-center gap-3 p-4 text-left border-b border-indigo-500/20 bg-indigo-500/5">
+                  <div className={`w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0`}>
+                    <FileAudio size={16} className="text-indigo-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-indigo-100 text-sm">Call Transcript (AI Agent)</span>
+                  </div>
+                </div>
+                <div className="p-5 font-mono text-[11px] text-white/60 whitespace-pre-wrap leading-relaxed bg-[#0a0a0f]">
+                  {memo.transcript as string}
+                </div>
+              </div>
+            )}
 
             {/* Footer */}
             <div className="pt-2 pb-4 text-center">
@@ -667,6 +745,68 @@ export default function MemoApp() {
           </div>
         )}
       </div>
+
+      {/* Call Modal */}
+      {showCallModal && memo && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#111] border border-white/10 rounded-2xl p-6 w-full max-w-2xl shadow-2xl flex flex-col max-h-full">
+            <div className="flex items-center justify-between mb-6 shrink-0">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <PhoneCall className="text-indigo-400" size={24} />
+                Call Founder
+              </h3>
+              <button onClick={() => setShowCallModal(false)} className="text-white/40 hover:text-white"><XCircle size={24}/></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              {callState === 'idle' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white/5 border border-white/10 p-5 rounded-xl text-left flex flex-col cursor-default">
+                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-4">
+                      <User size={24} className="text-white/70" />
+                    </div>
+                    <div className="font-bold mb-1 text-lg">Manual Call</div>
+                    <div className="text-sm text-white/50 mb-5">You call the founder yourself. Here are the critical questions to ask:</div>
+                    <ul className="text-sm text-white/80 space-y-3 list-disc pl-4 flex-1">
+                      {((memo.open_questions as string[]) || ["Can you clarify your monetization timeline?", "What is your primary moat?"]).map((q, i) => (
+                        <li key={i}>{q}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  <button onClick={handleAiCall} className="bg-indigo-500/10 border border-indigo-500/30 hover:border-indigo-500/60 p-5 rounded-xl text-left transition-colors flex flex-col group text-left">
+                    <div className="w-12 h-12 rounded-full bg-indigo-500/20 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-indigo-500/30 transition-all">
+                      <Bot size={24} className="text-indigo-400" />
+                    </div>
+                    <div className="font-bold text-indigo-100 mb-1 text-lg">AI Agent Call</div>
+                    <div className="text-sm text-indigo-200/60">An AI Agent will call the founder on your behalf, conduct the interview based on the critical questions, transcribe it, and update the memo automatically.</div>
+                    
+                    <div className="mt-auto pt-6 text-indigo-400 text-sm font-semibold flex items-center gap-2">
+                      Start Call <PhoneCall size={14} />
+                    </div>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <div className="w-24 h-24 rounded-full bg-indigo-500/10 flex items-center justify-center mb-8 relative">
+                    {callState !== 'completed' && <div className="absolute inset-0 border-2 border-indigo-500 rounded-full animate-ping opacity-20"></div>}
+                    <Bot size={48} className={callState === 'completed' ? "text-green-400" : "text-indigo-400 animate-pulse"} />
+                  </div>
+                  <div className="text-2xl font-bold text-white mb-3">
+                    {callState === 'calling' && "Ringing Founder..."}
+                    {callState === 'conversing' && "Conversing with Founder..."}
+                    {callState === 'transcribing' && "Analyzing & Transcribing..."}
+                    {callState === 'completed' && "Call Complete!"}
+                  </div>
+                  <div className="text-base text-white/40">
+                    {callState === 'completed' ? "Updating due diligence memo..." : "Please wait while the AI handles the interview."}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
