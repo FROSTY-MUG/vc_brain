@@ -19,9 +19,11 @@ ARXIV_QUERY_URL = "http://export.arxiv.org/api/query"
 CRUNCHBASE_AUTOCOMPLETE_URL = "https://api.crunchbase.com/v4/data/autocompletes"
 
 from utils.llm import get_llm_client, get_model_name
+from tavily import TavilyClient
 import base64
 
 openai_client = get_llm_client()
+tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY", "dummy"))
 
 def scan_github(query: str = "llm-agent OR AI-infra") -> list:
     """
@@ -40,7 +42,7 @@ def scan_github(query: str = "llm-agent OR AI-infra") -> list:
     # Calculate date 30 days ago
     date_str = (datetime.utcnow() - timedelta(days=30)).strftime("%Y-%m-%d")
     full_query = f"{query} stars:>10 created:>{date_str}"
-    url = f"https://api.github.com/search/repositories?q={quote_plus(full_query)}&sort=stars&order=desc&per_page=5" # Reduced to 5 for latency
+    url = f"https://api.github.com/search/repositories?q={quote_plus(full_query)}&sort=stars&order=desc&per_page=5"
 
     try:
         response = requests.get(url, headers=headers, timeout=10)
@@ -95,30 +97,8 @@ def scan_github(query: str = "llm-agent OR AI-infra") -> list:
                 })
         else:
             print(f"GitHub API failed with status {response.status_code}: {response.text}")
-            raise Exception("GitHub API Error")
     except Exception as e:
-        print(f"GitHub scan error: {e}. Falling back to curated mock signals.")
-        # Fallback signals
-        signals = [
-            {
-                "source": "github",
-                "signal_type": "trending_repository",
-                "title": "open-agent-foundation/agent-runtime",
-                "description": "Ultra-fast execution runtime for agentic workflows with local LLM fallback.",
-                "url": "https://github.com/open-agent-foundation/agent-runtime",
-                "strength": 92.5,
-                "founder_name": "open-agent-founder"
-            },
-            {
-                "source": "github",
-                "signal_type": "trending_repository",
-                "title": "kernel-ops/quantum-compile",
-                "description": "A C++ library for optimizing neural network kernels on Apple Silicon and Nvidia Edge GPUs.",
-                "url": "https://github.com/kernel-ops/quantum-compile",
-                "strength": 87.0,
-                "founder_name": "kernel-ops-team"
-            }
-        ]
+        print(f"GitHub scan error: {e}")
     return signals
 
 def scan_arxiv(query: str = "all:electron") -> list:
@@ -163,156 +143,127 @@ def scan_arxiv(query: str = "all:electron") -> list:
                     "title": title,
                     "description": summary,
                     "url": url_link,
-                    "strength": strength,
+                    "strength": min(strength, 99.0),
                     "founder_name": author
                 })
-        else:
-            raise Exception("arXiv API Error")
     except Exception as e:
-        print(f"arXiv scan error: {e}. Falling back to mock paper signals.")
-        signals = [
-            {
-                "source": "arxiv",
-                "signal_type": "academic_breakthrough",
-                "title": "Local Agent Runtime: Low-Latency Compiler Techniques for Edge Architectures",
-                "description": "This paper presents compiler optimizations that reduce latency of local LLM agent execution by compiling computational graphs into edge-optimized kernels.",
-                "url": "https://arxiv.org/abs/2605.12345",
-                "strength": 88.5,
-                "founder_name": "Dr. Aris Thorne"
-            },
-            {
-                "source": "arxiv",
-                "signal_type": "academic_breakthrough",
-                "title": "Electron Quantization: Highly compressed transformer weights for tiny microcontrollers",
-                "description": "We introduce a novel 1.58-bit quantization format 'Electron' designed for microcontrollers with less than 2MB of SRAM, showing high accuracy retention.",
-                "url": "https://arxiv.org/abs/2607.09876",
-                "strength": 84.0,
-                "founder_name": "Prof. Elena Rostova"
-            }
-        ]
+        print(f"arXiv scan error: {e}")
     return signals
 
 def scan_product_hunt() -> list:
     """
     Scans Product Hunt GraphQL API v2 for daily product launches.
+    Falls back to Tavily search if token is absent.
     """
     signals = []
-    url = "https://api.producthunt.com/v2/api/graphql"
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
     if PRODUCT_HUNT_TOKEN:
-        headers["Authorization"] = f"Bearer {PRODUCT_HUNT_TOKEN}"
-
-    # Fetch daily top launches
-    gql_query = """
-    query {
-      posts(first: 10, order: VOTES) {
-        edges {
-          node {
-            name
-            tagline
-            description
-            votesCount
-            website
-            makers {
-              name
+        url = "https://api.producthunt.com/v2/api/graphql"
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Bearer {PRODUCT_HUNT_TOKEN}"
+        }
+        # Fetch daily top launches
+        gql_query = """
+        query {
+          posts(first: 5, order: VOTES) {
+            edges {
+              node {
+                name
+                tagline
+                description
+                votesCount
+                website
+                makers {
+                  name
+                }
+              }
             }
           }
         }
-      }
-    }
-    """
+        """
+        try:
+            response = requests.post(url, json={"query": gql_query}, headers=headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                posts = data.get("data", {}).get("posts", {}).get("edges", [])
+                for post in posts:
+                    node = post.get("node", {})
+                    votes = node.get("votesCount", 0)
+                    strength = min(50 + votes / 10, 99.0)
+                    makers = node.get("makers", [])
+                    maker_name = makers[0].get("name", "Unknown Maker") if makers else "Unknown Maker"
+                    signals.append({
+                        "source": "producthunt",
+                        "signal_type": "product_launch",
+                        "title": node.get("name", ""),
+                        "description": f"{node.get('tagline', '')} - {node.get('description', '')}"[:250],
+                        "url": node.get("website", ""),
+                        "strength": round(strength, 1),
+                        "founder_name": maker_name
+                    })
+                return signals
+        except Exception as e:
+            print(f"Product Hunt API Error: {e}")
+
+    # Fallback to Tavily
     try:
-        response = requests.post(url, json={"query": gql_query}, headers=headers, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            posts = data.get("data", {}).get("posts", {}).get("edges", [])
-            for post in posts:
-                node = post.get("node", {})
-                votes = node.get("votesCount", 0)
-                strength = min(50 + votes / 10, 99.0)
-                makers = node.get("makers", [])
-                maker_name = makers[0].get("name", "Unknown Maker") if makers else "Unknown Maker"
-                signals.append({
-                    "source": "producthunt",
-                    "signal_type": "product_launch",
-                    "title": node.get("name", ""),
-                    "description": f"{node.get('tagline', '')} - {node.get('description', '')}"[:250],
-                    "url": node.get("website", ""),
-                    "strength": round(strength, 1),
-                    "founder_name": maker_name
-                })
-        else:
-            raise Exception("Product Hunt API Error")
+        t_response = tavily_client.search(
+            query="site:producthunt.com 'Product of the Day' 'AI' OR 'developer tools' launch",
+            search_depth="advanced",
+            max_results=3,
+            include_raw_content=False
+        )
+        for r in t_response.get("results", []):
+            url = r.get("url", "")
+            title = r.get("title", "").split("|")[0].strip()
+            content = r.get("content", "")[:250]
+            signals.append({
+                "source": "producthunt",
+                "signal_type": "product_launch",
+                "title": title,
+                "description": content,
+                "url": url,
+                "strength": 85.0,
+                "founder_name": "TBD Maker"
+            })
     except Exception as e:
-        print(f"Product Hunt scan error: {e}. Falling back to mock launch signals.")
-        signals = [
-            {
-                "source": "producthunt",
-                "signal_type": "product_launch",
-                "title": "Electron AI Desktop",
-                "description": "An open-source Electron-based client to orchestrate local computer-use agents securely. Run tasks completely offline.",
-                "url": "https://producthunt.com/products/electron-ai-desktop",
-                "strength": 91.0,
-                "founder_name": "Marcus Aurelius"
-            },
-            {
-                "source": "producthunt",
-                "signal_type": "product_launch",
-                "title": "AgentFlow Studio",
-                "description": "Visual drag-and-drop workspace to map out complex multi-agent environments and debug them in real-time.",
-                "url": "https://producthunt.com/products/agentflow-studio",
-                "strength": 86.5,
-                "founder_name": "Livia Drusilla"
-            }
-        ]
+        print(f"Tavily PH Search failed: {e}")
+        
     return signals
 
 def scan_devpost() -> list:
     """
-    Uses the Apify Devpost scraper webhook/API token to scan Devpost submissions.
+    Uses Tavily Search to locate real Devpost hackathon winners.
     """
     signals = []
-    # Trigger/Fetch from Devpost scraper dataset if possible
-    # We can fetch latest datasets from Apify or search Devpost winners.
     try:
-        # If API token is provided, we can fetch items from Apify datasets or trigger actor
-        # For hackathon robustness, we can trigger or query Apify datasets, and fall back to Tavily search or mock data.
-        if DEVPOST_APIFY_TOKEN:
-            # Let's try to query the Apify API for dataset items
-            # In a real environment, you would hit: https://api.apify.com/v2/datasets/<dataset-id>/items
-            # For this agent, we will query Apify's run logs or fallback to a custom search.
-            pass
-        raise Exception("Force fallback to mock/search results for reliable Hackathon output")
+        t_response = tavily_client.search(
+            query="site:devpost.com/software 'winner' 'AI' OR 'LLM' OR 'agent'",
+            search_depth="advanced",
+            max_results=3,
+            include_raw_content=False
+        )
+        for r in t_response.get("results", []):
+            url = r.get("url", "")
+            title = r.get("title", "").replace("- Devpost", "").strip()
+            content = r.get("content", "")[:250]
+            signals.append({
+                "source": "devpost",
+                "signal_type": "hackathon_winner",
+                "title": title,
+                "description": content,
+                "url": url,
+                "strength": 88.0,
+                "founder_name": "Hackathon Winner"
+            })
     except Exception as e:
-        print(f"Devpost scan error/fallback: {e}")
-        signals = [
-            {
-                "source": "hackathon",
-                "signal_type": "hackathon_winner",
-                "title": "ElectronShield",
-                "description": "1st Place Winner at SF AI Hackathon. Real-time safety guardrail layer for local agent actions, preventing phishing and system commands.",
-                "url": "https://devpost.com/software/electron-shield",
-                "strength": 94.0,
-                "founder_name": "Nico Valenzuela"
-            },
-            {
-                "source": "hackathon",
-                "signal_type": "hackathon_winner",
-                "title": "MiniBrain",
-                "description": "Winner of the Best Edge Device Integration. Run a lightweight reasoning model locally on Raspberry Pi with sensor support.",
-                "url": "https://devpost.com/software/minibrain-pi",
-                "strength": 89.0,
-                "founder_name": "Clara Schmidt"
-            }
-        ]
+        print(f"Tavily Devpost Search failed: {e}")
     return signals
 
 def autocomplete_crunchbase(query: str) -> list:
     """
-    Queries Crunchbase Autocomplete API.
+    Queries Crunchbase Autocomplete API or falls back to Tavily.
     """
     headers = {
         "accept": "application/json",
@@ -333,17 +284,23 @@ def autocomplete_crunchbase(query: str) -> list:
                     "stage": item.get("funding_stage", "Seed")
                 })
             return results
-        else:
-            raise Exception("Crunchbase Autocomplete API Error")
     except Exception as e:
-        print(f"Crunchbase Autocomplete failed: {e}. Falling back to local suggestions.")
-        # Local keyword suggestions
-        local_db = [
-            {"name": "Electron AI", "website": "https://electron.ai", "sector": "AI Infrastructure", "location": "Berlin", "stage": "Seed"},
-            {"name": "ElectroWeb", "website": "https://electroweb.io", "sector": "Developer Tools", "location": "San Francisco", "stage": "Pre-Seed"},
-            {"name": "Agentic Labs", "website": "https://agenticlabs.com", "sector": "B2B SaaS", "location": "New York", "stage": "Series A"},
-            {"name": "ShieldTech AI", "website": "https://shieldtech.ai", "sector": "Cybersecurity", "location": "Austin", "stage": "Seed"},
-            {"name": "MiniLLM Systems", "website": "https://minillm.systems", "sector": "AI Infrastructure", "location": "London", "stage": "Seed"}
-        ]
-        results = [x for x in local_db if query.lower() in x["name"].lower()]
+        pass
+
+    try:
+        t_response = tavily_client.search(
+            query=f"{query} startup crunchbase funding",
+            max_results=2
+        )
+        results = []
+        for r in t_response.get("results", []):
+            results.append({
+                "name": r.get("title", "").split("|")[0].strip() or query,
+                "website": r.get("url", ""),
+                "sector": "Tech",
+                "location": "Global",
+                "stage": "Unknown"
+            })
         return results
+    except Exception:
+        return []

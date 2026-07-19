@@ -115,7 +115,7 @@ export default function TractionApp() {
   const deployCount = scores.filter(s => s.recommendation === "deploy").length;
 
   return (
-    <div className="h-full flex flex-col bg-[#08090c] text-white overflow-hidden">
+    <div className="absolute inset-0 flex flex-col bg-[#08090c] text-white overflow-hidden">
       {/* Header */}
       <div className="p-5 border-b border-white/5 shrink-0">
         <div className="flex items-center justify-between mb-4">
@@ -157,7 +157,7 @@ export default function TractionApp() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 space-y-3">
         {activeTab === "kpis" && (
           <div className="grid grid-cols-2 gap-3">
             {kpis.map((kpi, i) => (

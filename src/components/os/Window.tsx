@@ -44,7 +44,7 @@ export const WindowComponent: React.FC<WindowProps> = ({ windowState, children }
       dragHandleClassName="window-header"
       style={{ zIndex: windowState.zIndex }}
       onMouseDown={() => focusApp(windowState.id)}
-      className={`glass-panel flex flex-col rounded-xl overflow-hidden shadow-2xl transition-shadow ${
+      className={`glass-panel rounded-xl overflow-hidden shadow-2xl transition-shadow ${
         isActive ? "shadow-gold-500/20 border-gold-500/30" : ""
       }`}
     >
@@ -88,7 +88,7 @@ export const WindowComponent: React.FC<WindowProps> = ({ windowState, children }
       </div>
       
       {/* Content */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[#0a0a0a] w-full min-h-0">
+      <div className="absolute top-10 bottom-0 left-0 right-0 overflow-hidden bg-[#0a0a0a]">
         {children}
       </div>
     </Rnd>

@@ -110,7 +110,7 @@ export default function MessagesApp() {
   const replyRate = messages.length ? Math.round((repliedCount / messages.length) * 100) : 0;
 
   return (
-    <div className="h-full flex flex-col bg-[#08090c] text-white overflow-hidden">
+    <div className="absolute inset-0 flex flex-col bg-[#08090c] text-white overflow-hidden">
       {/* Header */}
       <div className="p-5 border-b border-white/5 shrink-0">
         <div className="flex items-center justify-between mb-4">
@@ -144,7 +144,7 @@ export default function MessagesApp() {
 
       {/* Compose View */}
       {view === "compose" && (
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-5 space-y-4">
           <p className="text-sm text-white/50">Draft a cold outreach message. Variables will be filled by the AI from founder data.</p>
           <div>
             <label className="text-xs text-white/30 mb-1.5 block">Channel</label>
@@ -201,7 +201,7 @@ export default function MessagesApp() {
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
               {filtered.map(m => {
                 const { icon: StatusIcon, color } = statusConfig[m.status];
                 const { icon: ChIcon, color: chColor } = channelConfig[m.channel];
@@ -234,7 +234,7 @@ export default function MessagesApp() {
 
           {/* Detail */}
           {selected ? (
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-5">
               <div className="flex items-start gap-3 mb-5">
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${selected.avatarColor} flex items-center justify-center font-bold text-white shrink-0`}>
                   {selected.avatar}
