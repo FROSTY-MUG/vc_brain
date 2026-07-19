@@ -1,6 +1,3 @@
-# =============================================
-# VC Brain — FastAPI Backend Entry Point
-# =============================================
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.applications import router as applications_router
@@ -16,6 +13,7 @@ from routes.investors import router as investors_router
 from routes.kpis import router as kpis_router
 from routes.profile import router as profile_router
 from routes.realtime import router as realtime_router
+import os
 
 app = FastAPI(
     title="VC Brain API",
@@ -23,9 +21,21 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# ALLOWED_ORIGINS env var: comma-separated list of allowed origins.
+# Defaults to localhost + Vercel wildcard pattern.
+_extra = os.getenv("ALLOWED_ORIGINS", "")
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+]
+if _extra:
+    ALLOWED_ORIGINS += [o.strip() for o in _extra.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",  # covers all Vercel preview URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

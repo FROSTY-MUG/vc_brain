@@ -245,6 +245,36 @@ def update_application_status(app_id: str, status: str):
     sb = get_supabase()
     sb.table("applications").update({"status": status}).eq("id", app_id).execute()
 
+def append_cot_log(app_id: str, entry: dict):
+    if _use_in_memory:
+        for app in _in_memory_db["applications"]:
+            if app["id"] == app_id:
+                if not app.get("cot_log"):
+                    app["cot_log"] = []
+                if isinstance(app["cot_log"], str):
+                    import json
+                    try:
+                        app["cot_log"] = json.loads(app["cot_log"])
+                    except:
+                        app["cot_log"] = []
+                app["cot_log"].append(entry)
+                break
+        return
+        
+    sb = get_supabase()
+    # Fetch, append, update (JSONB append requires SQL, so we do it client side for simplicity)
+    result = sb.table("applications").select("cot_log").eq("id", app_id).execute()
+    if result.data:
+        current_log = result.data[0].get("cot_log") or []
+        if isinstance(current_log, str):
+            import json
+            try:
+                current_log = json.loads(current_log)
+            except:
+                current_log = []
+        current_log.append(entry)
+        sb.table("applications").update({"cot_log": current_log}).eq("id", app_id).execute()
+
 def convert_application_to_deal(app_id: str) -> dict:
     app = get_application(app_id)
     if not app:
@@ -404,6 +434,21 @@ def insert_founder_score(founder_id: str, scores: dict) -> dict:
         return new_scores
         
     sb = get_supabase()
+    result = sb.table("founder_scores").insert({
+        "founder_id": founder_id, **scores
+    }).execute()
+    return result.data[0] if result.data else {}
+
+def upsert_founder_score(founder_id: str, scores: dict) -> dict:
+    if _use_in_memory:
+        # Delete old
+        _in_memory_db["founder_scores"] = [s for s in _in_memory_db["founder_scores"] if s.get("founder_id") != founder_id]
+        # Insert new
+        return insert_founder_score(founder_id, scores)
+        
+    sb = get_supabase()
+    # Supabase uses upsert on unique constraints. Or just delete and insert.
+    sb.table("founder_scores").delete().eq("founder_id", founder_id).execute()
     result = sb.table("founder_scores").insert({
         "founder_id": founder_id, **scores
     }).execute()

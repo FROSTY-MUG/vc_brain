@@ -43,7 +43,8 @@ def validate_claims(claims: list, research_data: dict) -> dict:
     if not claims:
         return {}
         
-    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    from utils.llm import get_langchain_llm
+    llm = get_langchain_llm(temperature=0)
     llm_with_tools = llm.with_structured_output(ValidationList)
     prompt = f"{VALIDATOR_PROMPT}\n\nClaims:\n{json.dumps(claims, indent=2)}\n\nResearch Data:\n{json.dumps(research_data, indent=2)[:30000]}"
     

@@ -110,32 +110,14 @@ def generate_memo(extraction: dict, research: dict, validation: dict, screening:
     Called by both the pipeline (auto) and the on-demand route.
     """
     try:
-        response = client.chat.completions.create(
-            model=get_model_name("gpt-4o"),
-            messages=[
-                {"role": "system", "content": MEMO_PROMPT},
-                {
-                    "role": "user",
-                    "content": (
-                        f"PITCH DECK EXTRACTION:\n{json.dumps(extraction, indent=2)[:6000]}\n\n"
-                        f"WEB RESEARCH (GitHub, LinkedIn, News, ProductHunt):\n{json.dumps(research, indent=2)[:12000]}\n\n"
-                        f"VALIDATION (Trust Scores per claim):\n{json.dumps(validation, indent=2)[:4000]}\n\n"
-                        f"SCREENING (3-Axis Scores: Founder / Market / Idea):\n{json.dumps(screening, indent=2)[:3000]}"
-                    )
-                }
-            ],
-            temperature=0.2,
-            response_format={"type": "json_object"}
-        )
-
-        result_text = response.choices[0].message.content
-        memo = json.loads(result_text)
-
-        # Ensure recommendation is a proper dict
-        rec = memo.get("recommendation", {})
-        if isinstance(rec, str):
-            memo["recommendation"] = {"action": rec, "confidence": "LOW", "reasoning": rec, "open_questions": []}
-
+        from utils.llm import get_langchain_llm
+        llm = get_langchain_llm(temperature=0.2)
+        llm_with_tools = llm.with_structured_output(InvestmentMemo)
+        
+        prompt = f"{MEMO_PROMPT}\n\nPITCH DECK EXTRACTION:\n{json.dumps(extraction, indent=2)[:6000]}\n\nWEB RESEARCH:\n{json.dumps(research, indent=2)[:12000]}\n\nVALIDATION:\n{json.dumps(validation, indent=2)[:4000]}\n\nSCREENING:\n{json.dumps(screening, indent=2)[:3000]}"
+        
+        res = llm_with_tools.invoke(prompt)
+        memo = res.model_dump()
         return memo
 
     except json.JSONDecodeError as e:

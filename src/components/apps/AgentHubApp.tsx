@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { BACKEND_URL } from "@/lib/api";
 import { Bot, Activity, CheckCircle2, XCircle, Loader2, RefreshCw, Zap, Brain, Search, FileText, Shield, Database } from "lucide-react";
 import Scroller from "@/components/Scroller";
 
@@ -39,7 +40,7 @@ export default function AgentHubApp() {
 
   const fetchRealLogs = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/applications/");
+      const res = await fetch(`${BACKEND_URL}/api/applications/`);
       if (res.ok) {
         const apps = await res.json();
         let allLogs: AgentLog[] = [];
@@ -80,7 +81,7 @@ export default function AgentHubApp() {
     setRunningAgents(prev => new Set(prev).add(agentId));
     try {
       if (agentId === "sourcing") {
-        await fetch("http://localhost:8000/api/sourcing/run", { method: "POST" }).catch(() => {});
+        await fetch(`${BACKEND_URL}/api/sourcing/run`, { method: "POST" }).catch(() => {});
       }
     } finally {
       setTimeout(() => {

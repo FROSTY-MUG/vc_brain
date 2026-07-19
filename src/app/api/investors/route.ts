@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { BACKEND_URL } from '@/lib/api';
 
 export async function GET() {
   try {
-    const res = await fetch('http://localhost:8000/api/investors/');
+    const res = await fetch(`${BACKEND_URL}/api/investors/`);
     const data = await res.json();
     return NextResponse.json(data);
   } catch (error) {

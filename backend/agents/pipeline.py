@@ -82,6 +82,11 @@ def extractor_node(state: WorkflowState) -> Dict[str, Any]:
             pass
 
     print(f"[{app_id}] [1/6] Extractor done — {len(extraction.get('claims', []))} claims extracted")
+    try:
+        import datetime
+        db.append_cot_log(app_id, {"ts": datetime.datetime.utcnow().isoformat(), "agent": "Extractor", "action": "extract_claims", "status": "success", "detail": "Completed"})
+    except:
+        pass
     return {"extraction": extraction}
 
 
@@ -124,6 +129,11 @@ def sourcer_node(state: WorkflowState) -> Dict[str, Any]:
         pass
 
     print(f"[{app_id}] [2/6] Sourcer done")
+    try:
+        import datetime
+        db.append_cot_log(app_id, {"ts": datetime.datetime.utcnow().isoformat(), "agent": "Sourcer", "action": "gather_research", "status": "success", "detail": "Completed"})
+    except:
+        pass
     return {"research": research}
 
 
@@ -160,6 +170,11 @@ def validator_node(state: WorkflowState) -> Dict[str, Any]:
                 pass
 
     print(f"[{app_id}] [3/6] Validator done")
+    try:
+        import datetime
+        db.append_cot_log(app_id, {"ts": datetime.datetime.utcnow().isoformat(), "agent": "Validator", "action": "validate_claims", "status": "success", "detail": "Completed"})
+    except:
+        pass
     return {"validation": validation}
 
 
@@ -180,7 +195,18 @@ def founder_scorer_node(state: WorkflowState) -> Dict[str, Any]:
         print(f"[{app_id}] FounderScorer failed: {e}")
         founder_scores = []
 
+    try:
+        for fs in founder_scores:
+            if isinstance(fs, dict) and "founder_id" in fs:
+                db.upsert_founder_score(fs["founder_id"], fs)
+    except Exception as e:
+        print(f"Failed to upsert founder scores: {e}")
     print(f"[{app_id}] [4/6] FounderScorer done — {len(founder_scores)} founders scored")
+    try:
+        import datetime
+        db.append_cot_log(app_id, {"ts": datetime.datetime.utcnow().isoformat(), "agent": "FounderScorer", "action": "score_founders", "status": "success", "detail": "Completed"})
+    except:
+        pass
     return {"founder_scores": founder_scores}
 
 
@@ -229,6 +255,11 @@ def screener_node(state: WorkflowState) -> Dict[str, Any]:
         print(f"[{app_id}] Failed to persist opportunity scores: {e}")
 
     print(f"[{app_id}] [5/6] Screener done — recommendation: {screening.get('recommendation')}")
+    try:
+        import datetime
+        db.append_cot_log(app_id, {"ts": datetime.datetime.utcnow().isoformat(), "agent": "Screener", "action": "opportunity_scoring", "status": "success", "detail": "Completed"})
+    except:
+        pass
     return {"screening": screening}
 
 
@@ -270,6 +301,11 @@ def memo_writer_node(state: WorkflowState) -> Dict[str, Any]:
         print(f"[{app_id}] Failed to persist memo: {e}")
 
     print(f"[{app_id}] [6/6] MemoWriter done — pipeline complete ✓")
+    try:
+        import datetime
+        db.append_cot_log(app_id, {"ts": datetime.datetime.utcnow().isoformat(), "agent": "MemoWriter", "action": "write_memo", "status": "success", "detail": "Completed"})
+    except:
+        pass
     return {"final_memo": memo}
 
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Onboarding from './Onboarding';
 import { ThemeProvider, useTheme } from '../ThemeContext';
+import { getWsUrl } from '@/lib/api';
 
 interface TraitScore {
   base_score: number;
@@ -29,7 +30,7 @@ function RadarAppInner({ userRole }: { userRole: 'investor' | 'founder' }) {
     setUserProfile(data);
     localStorage.setItem(`user_profile_${userRole}`, JSON.stringify(data));
     // Fire and forget sync to backend
-    fetch('/api/user/profile', { method: 'POST', body: JSON.stringify(data) }).catch(() => {});
+    fetch('/api/user/profile', { method: 'POST', body: JSON.stringify(data) }).catch(() => { });
   };
 
   // Append new signals instead of replacing, and limit size to 500
@@ -67,7 +68,7 @@ function RadarAppInner({ userRole }: { userRole: 'investor' | 'founder' }) {
 
   // Initialize Real-Time Sync Loop
   useEffect(() => {
-    const socket = new WebSocket(`ws://localhost:8000/api/ws/${userRole}`);
+    const socket = new WebSocket(getWsUrl(`/api/ws/${userRole}`));
     setWs(socket);
 
     socket.onmessage = (event) => {
@@ -80,7 +81,7 @@ function RadarAppInner({ userRole }: { userRole: 'investor' | 'founder' }) {
         let newData = payload.data || payload;
         if (!Array.isArray(newData)) newData = [newData];
         setAvailableInvestors(prev => {
-          const updated = [...newData, ...prev.filter(s => !newData.find(ns => (ns.id && ns.id === s.id)))];
+          const updated = [...newData, ...prev.filter(s => !newData.find((ns: { id: any; }) => (ns.id && ns.id === s.id)))];
           return updated.slice(0, 500);
         });
       }
@@ -93,7 +94,7 @@ function RadarAppInner({ userRole }: { userRole: 'investor' | 'founder' }) {
   const renderConfidenceMetric = (metric: any) => {
     if (!metric) return <span className={`${colors.mutedText} font-mono text-xs`}>NOT DISCLOSED</span>;
     if (typeof metric === 'number') return <span className="font-mono">{metric}% (Legacy Metric)</span>;
-    
+
     const { base_score, confidence_margin_of_error, justification } = metric as TraitScore;
     return (
       <div className="space-y-1">
@@ -123,7 +124,7 @@ function RadarAppInner({ userRole }: { userRole: 'investor' | 'founder' }) {
   return (
     <div className={`p-6 ${colors.bg} ${colors.text} min-h-screen font-sans selection:${colors.pulseBg} selection:text-black relative overflow-hidden transition-colors duration-700`}>
       <div className="radar-sweep-line" />
-      
+
       {/* Top Banner Status Bar */}
       <div className={`flex justify-between items-center mb-6 border-b ${colors.border} pb-4 relative z-20`}>
         <div>
@@ -196,25 +197,25 @@ function RadarAppInner({ userRole }: { userRole: 'investor' | 'founder' }) {
             <div className="space-y-3">
               <div>
                 <label className={`block text-xs font-mono ${colors.mutedText} mb-1`}>Target Capital Request (USD)</label>
-                <input 
-                  type="number" 
-                  value={fundingNeed} 
+                <input
+                  type="number"
+                  value={fundingNeed}
                   onChange={(e) => setFundingNeed(e.target.value)}
-                  placeholder="e.g. 100000" 
+                  placeholder="e.g. 100000"
                   className={`w-full ${colors.bg} border ${colors.border} rounded p-2 text-sm ${colors.text} focus:outline-none focus:border-opacity-100 font-mono`}
                 />
               </div>
               <div>
                 <label className={`block text-xs font-mono ${colors.mutedText} mb-1`}>Equity Percentage Allocation</label>
-                <input 
-                  type="number" 
-                  value={equityOffer} 
+                <input
+                  type="number"
+                  value={equityOffer}
                   onChange={(e) => setEquityOffer(e.target.value)}
-                  placeholder="e.g. 7" 
+                  placeholder="e.g. 7"
                   className={`w-full ${colors.bg} border ${colors.border} rounded p-2 text-sm ${colors.text} focus:outline-none focus:border-opacity-100 font-mono`}
                 />
               </div>
-              <button 
+              <button
                 onClick={handleFounderBroadcast}
                 className={`w-full ${colors.pulseBg} hover:opacity-80 font-mono text-black py-2 rounded text-xs tracking-wider transition-colors font-bold uppercase ${colors.glow}`}
               >
