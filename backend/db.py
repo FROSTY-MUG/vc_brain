@@ -30,143 +30,25 @@ _in_memory_db = {
     "outreach_events": [],
     "users": [],
     "founder_scores": [],
+    "theses": [],
     "sourcing_channels": [
         {"id": "github", "name": "GitHub Trending", "type": "code", "signals_generated": 0, "deals_funded": 0, "quality_score": 50, "active": True},
         {"id": "producthunt", "name": "ProductHunt Launches", "type": "launch", "signals_generated": 0, "deals_funded": 0, "quality_score": 50, "active": True},
         {"id": "devpost", "name": "Devpost Hackathons", "type": "hackathon", "signals_generated": 0, "deals_funded": 0, "quality_score": 50, "active": True},
         {"id": "arxiv", "name": "arXiv Papers", "type": "research", "signals_generated": 0, "deals_funded": 0, "quality_score": 50, "active": True}
     ],
-    "deals": []
+    "deals": [],
+    "collab_posts": [],
+    "investors": [],
+    "kpis": [],
+    "messages": []
 }
 
 
 # ── Seed Data Helper ──
 def _seed_in_memory_db():
-    # 1. Seed Users
-    _in_memory_db["users"].append({
-        "email": "investor@conviction.vc",
-        "name": "Sarah Chen",
-        "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330",
-        "role": "investor",
-        "onboarded": True
-    })
-    
-    # 2. Seed Startup 1
-    s1_id = str(uuid.uuid4())
-    _in_memory_db["startups"].append({
-        "id": s1_id,
-        "name": "Electron AI",
-        "website": "https://electron.ai",
-        "sector": "AI Infrastructure",
-        "stage": "Seed",
-        "geography": "Berlin",
-        "created_at": datetime.utcnow().isoformat()
-    })
-    
-    # 3. Seed Founder 1
-    f1_id = str(uuid.uuid4())
-    _in_memory_db["founders"].append({
-        "id": f1_id,
-        "name": "Alex Rivera",
-        "email": "alex@electron.ai",
-        "linkedin_url": "https://linkedin.com/in/alex-rivera-ai",
-        "github_url": "https://github.com/alexrivera",
-        "twitter_url": "https://twitter.com/alexrivera",
-        "bio": "Ex-Google Brain researcher, PhD in Physics from Munich. Expert in local agent execution.",
-        "location": "Berlin",
-        "created_at": datetime.utcnow().isoformat()
-    })
-    
-    _in_memory_db["founder_startups"].append({
-        "founder_id": f1_id,
-        "startup_id": s1_id,
-        "role": "founder"
-    })
-    
-    _in_memory_db["founder_scores"].append({
-        "founder_id": f1_id,
-        "overall_score": 88,
-        "execution_velocity": 92,
-        "domain_expertise": 95,
-        "resilience_history": 78,
-        "network_centrality": 81,
-        "updated_at": datetime.utcnow().isoformat()
-    })
+    pass
 
-    # Trust scores for Founder 1 (claim-level evidence)
-    _in_memory_db["trust_scores"].append({
-        "id": str(uuid.uuid4()),
-        "founder_id": f1_id,
-        "claim": "Ex-Google Brain researcher with PhD in Physics",
-        "score": 91,
-        "extraction_confidence": 0.97,
-        "source_reliability": 0.95,
-        "corroboration_count": 3,
-        "freshness_days": 12,
-        "contradiction_flag": False,
-        "reasoning": "LinkedIn confirms Google Brain tenure. Google Scholar profile shows 4 publications aligned with claims. PhD verified via university page.",
-        "evidence_url": "https://linkedin.com/in/alex-rivera-ai",
-        "created_at": datetime.utcnow().isoformat()
-    })
-    _in_memory_db["trust_scores"].append({
-        "id": str(uuid.uuid4()),
-        "founder_id": f1_id,
-        "claim": "4x latency improvement over vanilla transformers",
-        "score": 78,
-        "extraction_confidence": 0.88,
-        "source_reliability": 0.85,
-        "corroboration_count": 1,
-        "freshness_days": 30,
-        "contradiction_flag": False,
-        "reasoning": "GitHub repo shows benchmarks but no external independent replication yet. Claim is technically plausible given the quantized kernel approach.",
-        "evidence_url": "https://github.com/alexrivera/electron-runtime",
-        "created_at": datetime.utcnow().isoformat()
-    })
-    
-    # 4. Seed Application 1
-    a1_id = str(uuid.uuid4())
-    _in_memory_db["applications"].append({
-        "id": a1_id,
-        "startup_id": s1_id,
-        "source_type": "inbound",
-        "raw_text": "We are building Electron AI, a high-performance framework for deploying local agentic models on edge devices. Our runtime optimizes latency by 4x compared to vanilla transformers, using a custom quantized kernel written in C++.",
-        "deck_url": "electron_pitch_deck.pdf",
-        "status": "diligence",
-        "submitted_at": datetime.utcnow().isoformat()
-    })
-    
-    # 5. Seed Opportunity Scores 1
-    _in_memory_db["opportunity_scores"].append({
-        "application_id": a1_id,
-        "founder_score": 88,
-        "founder_confidence": 0.9,
-        "founder_trend": "up",
-        "founder_signals": ["top_tier_researcher", "second_time_founder"],
-        "market_score": 85,
-        "market_confidence": 0.8,
-        "market_trend": "stable",
-        "market_signals": ["growing_edge_ai", "enterprise_interest"],
-        "idea_score": 90,
-        "idea_confidence": 0.85,
-        "idea_trend": "up",
-        "idea_signals": ["4x_latency_advantage", "quantized_kernels"],
-        "thesis_alignment": 92,
-        "recommendation": "diligence"
-    })
-    
-    # 6. Seed Memo 1
-    _in_memory_db["memos"].append({
-        "application_id": a1_id,
-        "content_json": {
-            "summary": "Electron AI is building local agentic runtime with 4x performance. Highly technical founder (ex-Google Brain). Strong thesis alignment.",
-            "recommendation": {
-                "action": "diligence",
-                "reason": "Outstanding technical qualifications and clear product differentiation in the hot Edge AI runtime space."
-            }
-        },
-        "recommendation": "diligence",
-        "generated_at": datetime.utcnow().isoformat()
-    })
 
 # Initialize Supabase client or fall back
 try:
@@ -180,7 +62,6 @@ try:
 except Exception as e:
     _use_in_memory = True
     print(f"Supabase connection could not be established ({e}). Falling back to In-Memory Database.")
-    _seed_in_memory_db()
 
 def get_supabase() -> Client:
     global _client, _use_in_memory
@@ -284,6 +165,34 @@ def update_application_status(app_id: str, status: str):
         
     sb = get_supabase()
     sb.table("applications").update({"status": status}).eq("id", app_id).execute()
+
+def convert_application_to_deal(app_id: str) -> dict:
+    app = get_application(app_id)
+    if not app:
+        return {"error": "Application not found"}
+        
+    source = app.get("source_type", "inbound")
+    
+    # Update app status
+    update_application_status(app_id, "Funded")
+    
+    # Increment channel conversions
+    if _use_in_memory:
+        for ch in _in_memory_db["sourcing_channels"]:
+            if ch["id"] == source:
+                ch["deals_funded"] += 1
+                break
+    else:
+        try:
+            sb = get_supabase()
+            ch_res = sb.table("sourcing_channels").select("deals_funded").eq("id", source).execute()
+            if ch_res.data:
+                deals = ch_res.data[0].get("deals_funded", 0) + 1
+                sb.table("sourcing_channels").update({"deals_funded": deals}).eq("id", source).execute()
+        except Exception:
+            pass
+            
+    return {"status": "success", "app_id": app_id, "channel": source}
 
 def insert_claim(application_id: str, claim_type: str, statement: str, source: str) -> dict:
     if _use_in_memory:
@@ -407,16 +316,16 @@ def insert_outbound_signal(source: str, signal_type: str, title: str, descriptio
 def insert_founder_score(founder_id: str, scores: dict) -> dict:
     if _use_in_memory:
         new_scores = {
+            "id": str(uuid.uuid4()),
             "founder_id": founder_id,
             **scores,
-            "updated_at": datetime.utcnow().isoformat()
+            "created_at": datetime.utcnow().isoformat()
         }
-        _in_memory_db["founder_scores"] = [x for x in _in_memory_db["founder_scores"] if x["founder_id"] != founder_id]
         _in_memory_db["founder_scores"].append(new_scores)
         return new_scores
         
     sb = get_supabase()
-    result = sb.table("founder_scores").upsert({
+    result = sb.table("founder_scores").insert({
         "founder_id": founder_id, **scores
     }).execute()
     return result.data[0] if result.data else {}
@@ -464,6 +373,37 @@ def upsert_user(email: str, name: str, avatar_url: str, role: str = "investor", 
             "email": email, "name": name, "avatar_url": avatar_url, "role": role, "onboarded": onboarded
         }).execute()
     return result.data[0] if result.data else {}
+
+# ── Thesis Helpers ──
+def upsert_thesis(user_id: str, thesis_data: dict) -> dict:
+    if _use_in_memory:
+        for t in _in_memory_db["theses"]:
+            if t["user_id"] == user_id:
+                t.update(thesis_data)
+                return t
+        new_thesis = {"id": str(uuid.uuid4()), "user_id": user_id, **thesis_data}
+        _in_memory_db["theses"].append(new_thesis)
+        return new_thesis
+
+    sb = get_supabase()
+    # Try updating first
+    res = sb.table("theses").select("id").eq("user_id", user_id).execute()
+    if res.data:
+        res = sb.table("theses").update(thesis_data).eq("user_id", user_id).execute()
+    else:
+        res = sb.table("theses").insert({"user_id": user_id, **thesis_data}).execute()
+    return res.data[0] if res.data else {}
+
+def get_thesis_by_user(user_id: str) -> dict:
+    if _use_in_memory:
+        for t in _in_memory_db["theses"]:
+            if t["user_id"] == user_id:
+                return t
+        return {}
+
+    sb = get_supabase()
+    res = sb.table("theses").select("*").eq("user_id", user_id).execute()
+    return res.data[0] if res.data else {}
 
 # ── Message / Pitch Helpers ──
 def insert_pitch(founder_id: str, investor_id: str, message: str) -> dict:
@@ -575,7 +515,7 @@ def get_all_founders() -> list:
         res = []
         for f in _in_memory_db["founders"]:
             f_copy = f.copy()
-            f_copy["founder_scores"] = [fs for fs in _in_memory_db["founder_scores"] if fs["founder_id"] == f["id"]]
+            f_copy["founder_scores"] = sorted([fs for fs in _in_memory_db["founder_scores"] if fs["founder_id"] == f["id"]], key=lambda x: x.get("created_at", ""), reverse=True)
             f_copy["trust_scores"] = [ts for ts in _in_memory_db["trust_scores"] if ts.get("founder_id") == f["id"]]
             # Attach startups via junction
             f_copy["startups"] = []
@@ -597,7 +537,7 @@ def get_founder(founder_id: str) -> dict:
         for f in _in_memory_db["founders"]:
             if f["id"] == founder_id:
                 f_copy = f.copy()
-                f_copy["founder_scores"] = [fs for fs in _in_memory_db["founder_scores"] if fs["founder_id"] == founder_id]
+                f_copy["founder_scores"] = sorted([fs for fs in _in_memory_db["founder_scores"] if fs["founder_id"] == founder_id], key=lambda x: x.get("created_at", ""), reverse=True)
                 f_copy["trust_scores"] = [ts for ts in _in_memory_db["trust_scores"] if ts.get("founder_id") == founder_id]
                 linked = []
                 f_copy["startups"] = []
@@ -645,6 +585,137 @@ def get_all_outbound_signals() -> list:
     sb = get_supabase()
     result = sb.table("outbound_signals").select("*").order("discovered_at", desc=True).execute()
     return result.data or []
+
+# ── Collab Helpers ──
+def get_all_collab_posts() -> list:
+    if _use_in_memory:
+        return sorted(_in_memory_db["collab_posts"], key=lambda x: x.get("timestamp", ""), reverse=True)
+    sb = get_supabase()
+    res = sb.table("collab_posts").select("*").order("timestamp", desc=True).execute()
+    return res.data or []
+
+def insert_collab_post(post: dict) -> dict:
+    if _use_in_memory:
+        post["id"] = str(uuid.uuid4())
+        post["timestamp"] = datetime.utcnow().isoformat()
+        _in_memory_db["collab_posts"].append(post)
+        return post
+    sb = get_supabase()
+    res = sb.table("collab_posts").insert(post).execute()
+    return res.data[0] if res.data else {}
+
+# ── Investors Helpers ──
+def get_all_investors() -> list:
+    if _use_in_memory:
+        return _in_memory_db["investors"]
+    sb = get_supabase()
+    res = sb.table("investors").select("*").execute()
+    return res.data or []
+
+# ── KPIs Helpers ──
+def get_all_kpis() -> list:
+    if _use_in_memory:
+        return _in_memory_db["kpis"]
+    sb = get_supabase()
+    res = sb.table("kpis").select("*").execute()
+    return res.data or []
+
+
+# ── KPIs Helpers ──
+def get_all_kpis() -> list:
+    if _use_in_memory:
+        return _in_memory_db["kpis"]
+    sb = get_supabase()
+    res = sb.table("kpis").select("*").execute()
+    return res.data or []
+
+# ── Chat/Messages Helpers ──
+def get_all_users() -> list:
+    if _use_in_memory:
+        return _in_memory_db["users"]
+    sb = get_supabase()
+    res = sb.table("users").select("*").execute()
+    return res.data or []
+
+def get_conversations(user_email: str) -> list:
+    if _use_in_memory:
+        convos = {}
+        for m in _in_memory_db["messages"]:
+            if m.get("sender_email") == user_email or m.get("recipient_email") == user_email:
+                other = m["recipient_email"] if m["sender_email"] == user_email else m["sender_email"]
+                if other not in convos or m["sent_at"] > convos[other]["last_message_at"]:
+                    convos[other] = {
+                        "other_email": other,
+                        "last_message": m["content"],
+                        "last_message_at": m["sent_at"]
+                    }
+        return list(convos.values())
+        
+    sb = get_supabase()
+    # Simple query to get all messages for user, we will group them in memory
+    res = sb.table("messages").select("*").or_(f"sender_email.eq.{user_email},recipient_email.eq.{user_email}").order("sent_at", desc=True).execute()
+    messages = res.data or []
+    convos = {}
+    for m in messages:
+        other = m["recipient_email"] if m["sender_email"] == user_email else m["sender_email"]
+        if other not in convos:
+            convos[other] = {
+                "other_email": other,
+                "last_message": m["content"],
+                "last_message_at": m["sent_at"]
+            }
+    return list(convos.values())
+
+def get_conversation_messages(user1_email: str, user2_email: str) -> list:
+    if _use_in_memory:
+        msgs = [m for m in _in_memory_db["messages"] if 
+                (m.get("sender_email") == user1_email and m.get("recipient_email") == user2_email) or 
+                (m.get("sender_email") == user2_email and m.get("recipient_email") == user1_email)]
+        return sorted(msgs, key=lambda x: x["sent_at"])
+        
+    sb = get_supabase()
+    res = sb.table("messages").select("*").or_(
+        f"and(sender_email.eq.{user1_email},recipient_email.eq.{user2_email}),and(sender_email.eq.{user2_email},recipient_email.eq.{user1_email})"
+    ).order("sent_at", desc=False).execute()
+    return res.data or []
+
+def insert_conversation_message(sender_email: str, recipient_email: str, content: str) -> dict:
+    new_msg = {
+        "id": str(uuid.uuid4()),
+        "sender_email": sender_email,
+        "recipient_email": recipient_email,
+        "content": content,
+        "sent_at": datetime.utcnow().isoformat(),
+        "read": False
+    }
+    if _use_in_memory:
+        if "messages" not in _in_memory_db:
+            _in_memory_db["messages"] = []
+        _in_memory_db["messages"].append(new_msg)
+        return new_msg
+        
+    sb = get_supabase()
+    res = sb.table("messages").insert(new_msg).execute()
+    return res.data[0] if res.data else {}
+
+# ── Messages Helpers ──
+def get_all_messages() -> list:
+    if _use_in_memory:
+        return _in_memory_db["messages"]
+    sb = get_supabase()
+    res = sb.table("messages").select("*").execute()
+    return res.data or []
+
+def insert_message(message: dict) -> dict:
+    if _use_in_memory:
+        message["id"] = str(uuid.uuid4())
+        message["sent_at"] = datetime.utcnow().isoformat()
+        _in_memory_db["messages"].append(message)
+        return message
+    sb = get_supabase()
+    res = sb.table("messages").insert(message).execute()
+    return res.data[0] if res.data else {}
+
 
 # ── Sourcing Network Intelligence ──
 
@@ -713,3 +784,48 @@ def register_deal_feedback(channel_id: str, startup_id: str, founder_id: str = N
             return res.data[0] if res.data else deal
         except Exception:
             return {}
+
+import sqlite3
+import time
+from contextlib import contextmanager
+
+DB_PATH = "vc_brain_storage.db"
+
+@contextmanager
+def get_db_connection():
+    # Enforces absolute thread containment margins for handling high-frequency async workers
+    conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False, isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL;")  # Write-Ahead Logging for non-blocking concurrent reads/writes
+    
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS founder_scores_history (
+            id TEXT PRIMARY KEY,
+            founder_id TEXT,
+            base_score INTEGER,
+            confidence_margin INTEGER,
+            justification TEXT,
+            recorded_timestamp INTEGER
+        );
+    """)
+    
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+def append_historical_founder_score(founder_id: str, base_score: int, margin: int, rationale: str):
+    query = """
+        INSERT INTO founder_scores_history (id, founder_id, base_score, confidence_margin, justification, recorded_timestamp)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(query, (
+                str(uuid.uuid4()),  # Guarantee zero primary key collisions across execution frames
+                founder_id,
+                base_score,
+                margin,
+                rationale,
+                int(time.time())
+            ))

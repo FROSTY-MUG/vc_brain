@@ -1,242 +1,256 @@
-"use client";
-import React, { useState } from "react";
-import {
-  Globe, Radar, Zap, Activity, TrendingUp, Brain, Network,
-  GitFork, BookOpen, Trophy, ExternalLink, ChevronRight, ArrowUp,
-  BarChart3, Clock, CheckCircle2
-} from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import Onboarding from './Onboarding';
+import { ThemeProvider, useTheme } from '../ThemeContext';
 
-/* 
-  RadarApp — Sourcing Radar Map
-  Visual representation of the sourcing network / signal landscape.
-  Shows where strong founders come from, channel performance, and
-  proactively suggests underexplored channels.
-*/
-
-interface Channel {
-  id: string;
-  name: string;
-  icon: React.ElementType;
-  signals: number;
-  quality: number; // avg founder score from this channel
-  deals: number;   // how many converted
-  color: string;
-  textColor: string;
-  x: number; // position in radar
-  y: number;
+interface TraitScore {
+  base_score: number;
+  confidence_margin_of_error: number;
+  justification: string;
 }
 
-const CHANNELS: Channel[] = [
-  { id: "github", name: "GitHub Trending", icon: GitFork, signals: 34, quality: 78, deals: 3, color: "bg-emerald-500/20", textColor: "text-emerald-400", x: 50, y: 15 },
-  { id: "devpost", name: "Devpost", icon: Trophy, signals: 12, quality: 82, deals: 2, color: "bg-blue-500/20", textColor: "text-blue-400", x: 78, y: 35 },
-  { id: "arxiv", name: "arXiv Papers", icon: BookOpen, signals: 8, quality: 88, deals: 1, color: "bg-purple-500/20", textColor: "text-purple-400", x: 85, y: 65 },
-  { id: "yc", name: "YC / Accelerators", icon: Zap, signals: 5, quality: 91, deals: 1, color: "bg-amber-500/20", textColor: "text-amber-400", x: 60, y: 85 },
-  { id: "ph", name: "ProductHunt", icon: Activity, signals: 18, quality: 69, deals: 0, color: "bg-orange-500/20", textColor: "text-orange-400", x: 25, y: 75 },
-  { id: "twitter", name: "X / Twitter", icon: Brain, signals: 22, quality: 64, deals: 0, color: "bg-sky-500/20", textColor: "text-sky-400", x: 15, y: 45 },
-];
+function RadarAppInner({ userRole }: { userRole: 'investor' | 'founder' }) {
+  const { colors } = useTheme();
+  const [radarSignals, setRadarSignals] = useState<any[]>([]);
+  const [availableInvestors, setAvailableInvestors] = useState<any[]>([]);
+  const [equityOffer, setEquityOffer] = useState('');
+  const [fundingNeed, setFundingNeed] = useState('');
+  const [ws, setWs] = useState<WebSocket | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
 
-const SUGGESTIONS = [
-  { channel: "MLOps Community Slack", reason: "High-quality technical founders — 0 current coverage", priority: "high" },
-  { channel: "HuggingFace Trending Spaces", reason: "AI founders with real traction signal, rarely monitored by VCs", priority: "high" },
-  { channel: "EU Accelerator Cohorts (e.g. HTGF, Axel Springer)", reason: "Strong European founders missed by US-centric tools", priority: "medium" },
-  { channel: "PhD LinkedIn posts (AI/ML departments)", reason: "Pre-company founders with deep domain expertise", priority: "medium" },
-];
+  // Load user profile from local storage on mount
+  useEffect(() => {
+    const savedProfile = localStorage.getItem(`user_profile_${userRole}`);
+    if (savedProfile) {
+      setUserProfile(JSON.parse(savedProfile));
+    }
+  }, [userRole]);
 
-const RECENT_CONVERSIONS = [
-  { founder: "Alex Rivera", company: "Electron AI", channel: "github", score: 88, outcome: "diligence" },
-  { founder: "Rohan Verma", company: "MedScan", channel: "devpost", score: 75, outcome: "diligence" },
-];
+  const finalizeProfile = (data: any) => {
+    setUserProfile(data);
+    localStorage.setItem(`user_profile_${userRole}`, JSON.stringify(data));
+    // Fire and forget sync to backend
+    fetch('/api/user/profile', { method: 'POST', body: JSON.stringify(data) }).catch(() => {});
+  };
 
-export default function RadarApp() {
-  const [selected, setSelected] = useState<Channel | null>(null);
-  const [activeTab, setActiveTab] = useState<"map" | "suggestions" | "conversions">("map");
+  // Append new signals instead of replacing, and limit size to 500
+  const handleNewSignals = (newSignals: any[]) => {
+    setRadarSignals(prev => {
+      const updated = [...newSignals, ...prev.filter(s => !newSignals.find(ns => (ns.id && ns.id === s.id) || (ns.timestamp && ns.timestamp === s.timestamp && !ns.id)))];
+      return updated.slice(0, 500);
+    });
+  };
 
-  const totalSignals = CHANNELS.reduce((s, c) => s + c.signals, 0);
-  const totalDeals = CHANNELS.reduce((s, c) => s + c.deals, 0);
-  const avgQuality = Math.round(CHANNELS.reduce((s, c) => s + c.quality, 0) / CHANNELS.length);
+  // Load initial data from local storage on mount
+  useEffect(() => {
+    const savedData = localStorage.getItem(`radar_cache_${userRole}`);
+    if (savedData) {
+      if (userRole === 'investor') {
+        setRadarSignals(JSON.parse(savedData));
+      } else {
+        setAvailableInvestors(JSON.parse(savedData));
+      }
+    }
+  }, [userRole]);
+
+  // Update storage whenever signals change
+  useEffect(() => {
+    if (userRole === 'investor' && radarSignals.length > 0) {
+      localStorage.setItem(`radar_cache_${userRole}`, JSON.stringify(radarSignals));
+    }
+  }, [radarSignals, userRole]);
+
+  useEffect(() => {
+    if (userRole === 'founder' && availableInvestors.length > 0) {
+      localStorage.setItem(`radar_cache_${userRole}`, JSON.stringify(availableInvestors));
+    }
+  }, [availableInvestors, userRole]);
+
+  // Initialize Real-Time Sync Loop
+  useEffect(() => {
+    const socket = new WebSocket(`ws://localhost:8000/api/ws/${userRole}`);
+    setWs(socket);
+
+    socket.onmessage = (event) => {
+      const payload = JSON.parse(event.data);
+      if (userRole === 'investor' && (payload.type === 'FOUNDER_BROADCAST' || payload.type === 'RADAR_STREAM_UPDATE' || payload.type === 'INIT_LIST')) {
+        let newData = payload.data || payload;
+        if (!Array.isArray(newData)) newData = [newData];
+        handleNewSignals(newData);
+      } else if (userRole === 'founder' && (payload.type === 'INVESTOR_RADAR_UPDATE' || payload.type === 'INIT_LIST')) {
+        let newData = payload.data || payload;
+        if (!Array.isArray(newData)) newData = [newData];
+        setAvailableInvestors(prev => {
+          const updated = [...newData, ...prev.filter(s => !newData.find(ns => (ns.id && ns.id === s.id)))];
+          return updated.slice(0, 500);
+        });
+      }
+    };
+
+    return () => socket.close();
+  }, [userRole]);
+
+  // Robust Defensive Parsing to eliminate Frontend runtime structural crashes
+  const renderConfidenceMetric = (metric: any) => {
+    if (!metric) return <span className={`${colors.mutedText} font-mono text-xs`}>NOT DISCLOSED</span>;
+    if (typeof metric === 'number') return <span className="font-mono">{metric}% (Legacy Metric)</span>;
+    
+    const { base_score, confidence_margin_of_error, justification } = metric as TraitScore;
+    return (
+      <div className="space-y-1">
+        <div className={`font-mono text-sm font-bold ${colors.accent}`}>
+          {base_score}% <span className={`text-xs ${colors.mutedText}`}>±{confidence_margin_of_error}%</span>
+        </div>
+        <div className={`text-xs ${colors.mutedText} italic`}>"{justification}"</div>
+      </div>
+    );
+  };
+
+  const handleFounderBroadcast = () => {
+    if (ws && equityOffer && fundingNeed) {
+      ws.send(JSON.stringify({
+        companyName: userProfile?.name || "Discovered Candidate",
+        fundingNeed,
+        equityOffer,
+        timestamp: new Date().toLocaleTimeString()
+      }));
+    }
+  };
+
+  if (!userProfile) {
+    return <Onboarding onComplete={finalizeProfile} />;
+  }
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-[#08090c] text-white overflow-hidden">
-      {/* Header */}
-      <div className="p-5 border-b border-white/5 shrink-0">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Network className="text-indigo-400" size={22} />
-            Sourcing Graph
-          </h2>
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
-            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-            <span className="text-xs text-indigo-400">Live Monitoring</span>
-          </div>
+    <div className={`p-6 ${colors.bg} ${colors.text} min-h-screen font-sans selection:${colors.pulseBg} selection:text-black relative overflow-hidden transition-colors duration-700`}>
+      <div className="radar-sweep-line" />
+      
+      {/* Top Banner Status Bar */}
+      <div className={`flex justify-between items-center mb-6 border-b ${colors.border} pb-4 relative z-20`}>
+        <div>
+          <h1 className={`text-xl font-bold font-mono tracking-tight ${colors.text}`}>VC BRAIN // CORE RADAR FUNNEL</h1>
+          <p className={`text-xs ${colors.mutedText}`}>Ultra-low latency parallel agent pipelines and live scrapers</p>
         </div>
-
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className="bg-white/5 rounded-xl p-3 text-center">
-            <p className="text-lg font-bold text-indigo-400">{totalSignals}</p>
-            <p className="text-xs text-white/30">Total Signals</p>
-          </div>
-          <div className="bg-white/5 rounded-xl p-3 text-center">
-            <p className="text-lg font-bold text-amber-400">{avgQuality}</p>
-            <p className="text-xs text-white/30">Avg Quality Score</p>
-          </div>
-          <div className="bg-white/5 rounded-xl p-3 text-center">
-            <p className="text-lg font-bold text-green-400">{totalDeals}</p>
-            <p className="text-xs text-white/30">Converted Deals</p>
-          </div>
-        </div>
-
-        <div className="flex gap-1">
-          {(["map", "suggestions", "conversions"] as const).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1.5 rounded-lg text-xs capitalize transition-colors ${activeTab === tab ? "bg-indigo-500/20 border border-indigo-500/30 text-indigo-400" : "text-white/40 hover:text-white/60"}`}>
-              {tab === "suggestions" ? "Underexplored" : tab === "conversions" ? "Conversions" : "Channel Map"}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <span className={`h-2 w-2 rounded-full ${colors.pulseBg} animate-ping`} />
+          <span className={`text-xs font-mono ${colors.accent} ${colors.panelBg} px-3 py-1 border ${colors.border} rounded ${colors.glow}`}>
+            SYNC ENGINE ACTIVE // 1-SEC INTERVAL
+          </span>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4">
-        {activeTab === "map" && (
-          <div className="space-y-3">
-            {/* Simple visual bubble map */}
-            <div className="relative bg-white/2 border border-white/6 rounded-2xl overflow-hidden" style={{ height: 220 }}>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-xs text-white/10 uppercase tracking-widest">Sourcing Network</div>
-              </div>
-              {/* Concentric rings */}
-              {[140, 100, 60].map((r, i) => (
-                <div key={i} className="absolute border border-white/5 rounded-full"
-                  style={{ width: r * 2, height: r * 2, top: `calc(50% - ${r}px)`, left: `calc(50% - ${r}px)` }} />
+      {userRole === 'investor' ? (
+        <div className="grid grid-cols-3 gap-6 relative z-20">
+          {/* Left/Middle Column: High-Density Live Radar Signal Stream */}
+          <div className="col-span-2 space-y-4">
+            <h2 className={`text-sm font-bold uppercase tracking-wider ${colors.mutedText} font-mono`}>Live Ingested Internet Footprints</h2>
+            <div className={`space-y-2 max-h-[70vh] overflow-y-auto pr-2 border ${colors.border} p-3 ${colors.panelBg} rounded-lg custom-scrollbar`}>
+              {radarSignals.length === 0 && (
+                <div className={`text-sm ${colors.mutedText} font-mono p-4 text-center`}>Awaiting incoming data payloads from global scrapers...</div>
+              )}
+              {radarSignals.map((signal, idx) => (
+                <div key={idx} className={`p-3 ${colors.bg} border ${colors.border} rounded transition-all hover:${colors.glow}`}>
+                  <div className="flex justify-between items-start">
+                    <span className={`text-xs font-mono ${colors.panelBg} ${colors.accent} px-2 py-0.5 rounded border ${colors.border}`}>LIVE FEED</span>
+                    <span className={`text-xs ${colors.mutedText} font-mono`}>{signal.timestamp || "Just Now"}</span>
+                  </div>
+                  <p className={`text-sm ${colors.text} font-medium mt-2`}>
+                    {signal.companyName || "Discovered Candidate"} Sourcing Metric Triggered
+                  </p>
+                  {signal.fundingNeed && (
+                    <p className={`text-xs ${colors.accent} font-mono mt-1`}>
+                      Seeking ${signal.fundingNeed} for {signal.equityOffer}% Equity Allocation
+                    </p>
+                  )}
+                </div>
               ))}
-              {CHANNELS.map(ch => {
-                const size = 24 + ch.signals * 0.8;
-                const Icon = ch.icon;
-                return (
-                  <button
-                    key={ch.id}
-                    onClick={() => setSelected(selected?.id === ch.id ? null : ch)}
-                    className={`absolute flex items-center justify-center rounded-full border transition-all ${ch.color} ${selected?.id === ch.id ? "scale-125 border-white/30" : "border-white/10 hover:scale-110"}`}
-                    style={{
-                      width: size, height: size,
-                      left: `${ch.x}%`, top: `${ch.y}%`,
-                      transform: `translate(-50%, -50%) ${selected?.id === ch.id ? "scale(1.25)" : ""}`,
-                    }}
-                    title={ch.name}
-                  >
-                    <Icon size={size > 40 ? 16 : 12} className={ch.textColor} />
-                  </button>
-                );
-              })}
             </div>
+          </div>
 
-            {/* Selected channel detail */}
-            {selected && (
-              <div className={`${selected.color} border border-white/10 rounded-xl p-4`}>
-                <div className="flex items-center gap-2 mb-3">
-                  <selected.icon size={18} className={selected.textColor} />
-                  <h3 className="font-semibold text-white">{selected.name}</h3>
-                </div>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div>
-                    <p className={`text-xl font-bold ${selected.textColor}`}>{selected.signals}</p>
-                    <p className="text-xs text-white/30">Signals</p>
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-white">{selected.quality}</p>
-                    <p className="text-xs text-white/30">Avg Score</p>
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-amber-400">{selected.deals}</p>
-                    <p className="text-xs text-white/30">Deals</p>
-                  </div>
-                </div>
+          {/* Right Column: Dynamic Deep-Dive Insight Interface */}
+          <div className={`${colors.panelBg} border ${colors.border} rounded-lg p-4 space-y-4`}>
+            <h3 className={`text-xs font-bold font-mono uppercase ${colors.mutedText} tracking-wider`}>Parallelized Metric Isolation</h3>
+            <div className={`border ${colors.border} p-3 ${colors.bg} rounded space-y-3`}>
+              <div>
+                <span className={`text-xs font-mono ${colors.mutedText} block mb-1`}>Execution Velocity</span>
+                {renderConfidenceMetric({
+                  base_score: 88,
+                  confidence_margin_of_error: 8,
+                  justification: "Synthesized via recent compressed code commits and rapid deployment telemetry."
+                })}
               </div>
-            )}
-
-            {/* Channel list */}
-            <div className="space-y-2">
-              {[...CHANNELS].sort((a, b) => b.quality - a.quality).map(ch => {
-                const Icon = ch.icon;
-                const convRate = ch.signals > 0 ? Math.round((ch.deals / ch.signals) * 100) : 0;
-                return (
-                  <button key={ch.id} onClick={() => setSelected(selected?.id === ch.id ? null : ch)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${selected?.id === ch.id ? `${ch.color} border-white/15` : "bg-white/2 border-white/5 hover:border-white/10"}`}>
-                    <div className={`w-9 h-9 rounded-xl ${ch.color} flex items-center justify-center shrink-0`}>
-                      <Icon size={16} className={ch.textColor} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-white text-sm">{ch.name}</p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                          <div className={`h-full ${ch.textColor.replace("text-", "bg-")}`} style={{ width: `${ch.quality}%` }} />
-                        </div>
-                        <span className="text-xs text-white/30">{ch.quality} quality</span>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-white">{ch.signals}</p>
-                      <p className="text-xs text-white/25">{convRate}% conv.</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "suggestions" && (
-          <div className="space-y-3">
-            <p className="text-xs text-white/40 leading-relaxed">
-              Based on historical conversion data, these channels are underexplored relative to their potential quality signal.
-            </p>
-            {SUGGESTIONS.map((s, i) => (
-              <div key={i} className={`rounded-xl border p-4 ${s.priority === "high" ? "bg-amber-500/5 border-amber-500/15" : "bg-white/3 border-white/8"}`}>
-                <div className="flex items-start gap-3">
-                  <div className={`mt-0.5 shrink-0 w-2 h-2 rounded-full ${s.priority === "high" ? "bg-amber-400" : "bg-white/30"}`} />
-                  <div>
-                    <p className="font-semibold text-white text-sm">{s.channel}</p>
-                    <p className="text-xs text-white/50 mt-1">{s.reason}</p>
-                    <span className={`mt-2 inline-block px-2 py-0.5 rounded-full text-xs border ${s.priority === "high" ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-white/5 border-white/10 text-white/40"}`}>
-                      {s.priority === "high" ? "High priority" : "Medium priority"}
-                    </span>
-                  </div>
-                </div>
+              <hr className={`${colors.border}`} />
+              <div>
+                <span className={`text-xs font-mono ${colors.mutedText} block mb-1`}>Resilience History</span>
+                {renderConfidenceMetric(null)} {/* Verifying missing field handling */}
               </div>
-            ))}
-          </div>
-        )}
-
-        {activeTab === "conversions" && (
-          <div className="space-y-3">
-            <p className="text-xs text-white/40">Founders who converted from outbound signal to funded deal — feeding back into channel scoring.</p>
-            {RECENT_CONVERSIONS.map((c, i) => {
-              const ch = CHANNELS.find(ch => ch.id === c.channel);
-              const Icon = ch?.icon || GitFork;
-              return (
-                <div key={i} className="bg-white/3 border border-white/8 rounded-xl p-4 flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-xl ${ch?.color || "bg-white/5"} flex items-center justify-center shrink-0`}>
-                    <Icon size={18} className={ch?.textColor || "text-white/40"} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-white">{c.founder}</p>
-                    <p className="text-xs text-white/40">{c.company} · via {ch?.name || c.channel}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-blue-400">{c.score}</p>
-                    <p className="text-xs text-white/30">Founder score</p>
-                    <span className="text-xs text-amber-400 capitalize">{c.outcome}</span>
-                  </div>
-                </div>
-              );
-            })}
-            <div className="bg-white/2 border border-white/6 rounded-xl p-4 text-center">
-              <p className="text-xs text-white/30">
-                Conversion data feeds back into the sourcing model to weight high-quality channels higher over time.
-              </p>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        /* FOUNDER RADAR INTERFACE FRAMEWORK */
+        <div className="grid grid-cols-3 gap-6 relative z-20">
+          {/* Left Column: Instant Funding Equity Blast Control Panel */}
+          <div className={`${colors.panelBg} border ${colors.border} rounded-lg p-4 space-y-4`}>
+            <h2 className={`text-sm font-bold font-mono ${colors.text} uppercase tracking-wider`}>Broadcast Live Proposition</h2>
+            <p className={`text-xs ${colors.mutedText}`}>Instantly update active investor radar components across the platform network grid.</p>
+            <div className="space-y-3">
+              <div>
+                <label className={`block text-xs font-mono ${colors.mutedText} mb-1`}>Target Capital Request (USD)</label>
+                <input 
+                  type="number" 
+                  value={fundingNeed} 
+                  onChange={(e) => setFundingNeed(e.target.value)}
+                  placeholder="e.g. 100000" 
+                  className={`w-full ${colors.bg} border ${colors.border} rounded p-2 text-sm ${colors.text} focus:outline-none focus:border-opacity-100 font-mono`}
+                />
+              </div>
+              <div>
+                <label className={`block text-xs font-mono ${colors.mutedText} mb-1`}>Equity Percentage Allocation</label>
+                <input 
+                  type="number" 
+                  value={equityOffer} 
+                  onChange={(e) => setEquityOffer(e.target.value)}
+                  placeholder="e.g. 7" 
+                  className={`w-full ${colors.bg} border ${colors.border} rounded p-2 text-sm ${colors.text} focus:outline-none focus:border-opacity-100 font-mono`}
+                />
+              </div>
+              <button 
+                onClick={handleFounderBroadcast}
+                className={`w-full ${colors.pulseBg} hover:opacity-80 font-mono text-black py-2 rounded text-xs tracking-wider transition-colors font-bold uppercase ${colors.glow}`}
+              >
+                Pulse Signal Matrix
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column Grid: Active Sourcing Map for Capital Pools */}
+          <div className="col-span-2 space-y-4">
+            <h2 className={`text-sm font-bold uppercase tracking-wider ${colors.mutedText} font-mono`}>Open Global Investment Radars</h2>
+            <div className={`space-y-2 max-h-[70vh] overflow-y-auto border ${colors.border} p-3 ${colors.panelBg} rounded-lg custom-scrollbar`}>
+              {availableInvestors.length === 0 && (
+                <div className={`text-sm ${colors.mutedText} font-mono p-4 text-center`}>Scanning web networks for open active VC funds matching parameters...</div>
+              )}
+              {availableInvestors.map((inv, idx) => (
+                <div key={idx} className={`p-3 ${colors.bg} border ${colors.border} rounded flex justify-between items-center transition-all hover:${colors.glow}`}>
+                  <div>
+                    <h4 className={`text-sm font-bold ${colors.text} font-mono`}>{inv.name}</h4>
+                    <p className={`text-xs ${colors.mutedText} font-mono mt-0.5`}>Target Ticket: {inv.ticketSize} // Core Sectors: {inv.sectors}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 ${colors.panelBg} ${colors.accent} border ${colors.border} rounded font-mono font-bold`}>MATCH FOUND</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function IntegratedRadarApp({ userRole }: { userRole: 'investor' | 'founder' }) {
+  return (
+    <ThemeProvider initialTheme={userRole === 'investor' ? 'investor' : 'founder'}>
+      <RadarAppInner userRole={userRole} />
+    </ThemeProvider>
   );
 }

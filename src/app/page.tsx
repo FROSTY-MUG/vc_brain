@@ -36,13 +36,13 @@ export default function Home() {
           
           <div className="flex w-full gap-3">
             <button 
-              onClick={() => signIn("credentials")}
+              onClick={() => signIn("google")}
               className="flex-1 py-3.5 px-4 bg-white hover:bg-gray-100 text-black font-semibold rounded-xl transition-all flex items-center justify-center shadow-xl"
             >
               Sign In
             </button>
             <button 
-              onClick={() => signIn("credentials")}
+              onClick={() => signIn("google")}
               className="flex-1 py-3.5 px-4 bg-black border border-white/20 hover:bg-white/5 text-white font-semibold rounded-xl transition-all flex items-center justify-center shadow-xl"
             >
               Sign Up

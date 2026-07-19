@@ -1,58 +1,74 @@
+"use client";
 import React from "react";
 import { WindowManager } from "./WindowManager";
 import { Taskbar } from "./Taskbar";
 import { StartMenu } from "./StartMenu";
-import { Users, Search, Rocket, MessageSquare, Compass, LineChart } from "lucide-react";
+import {
+  Users, Search, Rocket, MessageSquare,
+  Compass, LineChart, Presentation, Settings,
+} from "lucide-react";
 import { useOSStore } from "@/store/useOSStore";
+
+const desktopIcons = [
+  { id: "profile",        title: "Profile",        icon: Rocket,        color: "text-blue-400" },
+  { id: "investor-search",title: "Find Investors",  icon: Search,        color: "text-emerald-400" },
+  { id: "startup-collab", title: "Collab",          icon: Users,         color: "text-purple-400" },
+  { id: "market-radar",   title: "Market",          icon: Compass,       color: "text-indigo-400" },
+  { id: "analytics",      title: "Traction",        icon: LineChart,     color: "text-amber-400" },
+  { id: "messages",       title: "Messages",        icon: MessageSquare, color: "text-sky-400" },
+  { id: "pitch-decks",    title: "Pitch Decks",     icon: Presentation,  color: "text-rose-400" },
+  { id: "settings",       title: "Settings",        icon: Settings,      color: "text-white/60" },
+];
 
 export const FounderDesktop = () => {
   const { openApp } = useOSStore();
 
-  const desktopIcons = [
-    { id: "profile", title: "My Profile", icon: Rocket, color: "text-blue-400" },
-    { id: "investor-search", title: "Investor Search", icon: Search, color: "text-emerald-400" },
-    { id: "startup-collab", title: "Startup Collab", icon: Users, color: "text-purple-400" },
-    { id: "market-radar", title: "Market Radar", icon: Compass, color: "text-cyan-400" },
-    { id: "analytics", title: "Traction", icon: LineChart, color: "text-amber-400" },
-    { id: "messages", title: "Messages", icon: MessageSquare, color: "text-slate-300" },
-  ];
-
   return (
-    <div className="w-full h-screen overflow-hidden relative selection:bg-blue-500/30 text-foreground bg-gradient-to-br from-[#0a0a0f] to-[#12141d]">
-      {/* Tech Working People Themed Background */}
-      <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900 via-[#0a0a0f] to-[#0a0a0f] z-0 pointer-events-none" />
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
-      <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
-      
-      {/* Marquee Scroller for active startups/hackathons */}
-      <div className="absolute top-0 left-0 right-0 h-8 bg-black/60 border-b border-blue-500/20 backdrop-blur-md z-10 overflow-hidden flex items-center">
-        <div className="animate-marquee whitespace-nowrap text-blue-400/80 text-xs font-mono tracking-widest px-4 flex gap-8">
-          <span>HACKATHON: MIT GLOBAL AI - LIVE</span>
-          <span>•</span>
-          <span>NEW COLLAB: 3 FOUNDERS ONLINE</span>
-          <span>•</span>
-          <span>VC BRAIN SCORE: UPDATING...</span>
-          <span>•</span>
-          <span>PROFILE VIEWS: 12 INVESTORS</span>
-          <span>•</span>
-          <span>GITHUB COMMITS SYNCED</span>
-          <span>•</span>
-          <span>HACKATHON: MIT GLOBAL AI - LIVE</span>
+    <div className="w-full h-screen overflow-hidden relative text-white bg-black select-none">
+      {/* Subtle dot texture */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.04]"
+        style={{ backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)", backgroundSize: "28px 28px" }}
+      />
+
+      {/* Top ticker */}
+      <div className="absolute top-0 left-0 right-0 h-7 bg-black border-b border-white/8 flex items-center overflow-hidden z-10">
+        <div className="animate-marquee whitespace-nowrap text-white/30 text-[11px] font-mono tracking-widest flex gap-10 px-4">
+          <span>VC BRAIN SCORE &nbsp;<span className="text-blue-400">Updating…</span></span>
+          <span>PROFILE VIEWS &nbsp;<span className="text-white/50">12 investors this week</span></span>
+          <span>SMART INDIA HACKATHON 2026 &nbsp;<span className="text-amber-400">LIVE</span></span>
+          <span>NEW COLLAB REQUESTS &nbsp;<span className="text-white/50">3 founders online</span></span>
+          <span>GITHUB COMMITS &nbsp;<span className="text-green-400">Synced</span></span>
+          <span>VC BRAIN SCORE &nbsp;<span className="text-blue-400">Updating…</span></span>
         </div>
       </div>
 
-      {/* Desktop Icons Area */}
-      <div className="p-4 pt-12 grid grid-cols-1 gap-6 w-28 z-20 relative">
+      {/* Center site name - Money Theme */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
+        <div className="relative">
+          <div className="absolute -inset-10 bg-emerald-500/10 blur-[100px] rounded-full" />
+          <p className="relative text-[72px] font-black tracking-tighter bg-gradient-to-b from-emerald-300 via-emerald-500 to-green-700 bg-clip-text text-transparent opacity-40 select-none drop-shadow-[0_4px_20px_rgba(16,185,129,0.2)]">
+            VC BRAIN
+          </p>
+        </div>
+        <p className="text-emerald-500/30 text-[10px] tracking-[0.5em] uppercase font-mono font-bold mt-2">
+          $ For Founders $
+        </p>
+      </div>
+
+      {/* Desktop Icons — Grid layout */}
+      <div className="absolute top-10 left-6 p-2 grid grid-cols-2 gap-4 z-20 w-[240px]">
         {desktopIcons.map((app) => (
           <button
             key={app.id}
             onDoubleClick={() => openApp({ id: app.id, title: app.title, icon: "app" })}
-            className="flex flex-col items-center gap-2 p-2 hover:bg-white/10 rounded-lg transition-colors group focus:bg-white/20 outline-none"
+            className="flex flex-col items-center gap-2 p-2 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors group focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/30"
+            aria-label={`Open ${app.title}`}
           >
-            <div className="w-12 h-12 bg-black/50 border border-blue-500/30 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/10 group-hover:scale-105 group-hover:border-blue-400 transition-all backdrop-blur-md">
-              <app.icon className={`${app.color} drop-shadow-md`} size={24} />
+            <div className="w-14 h-14 bg-black/50 backdrop-blur-sm border border-white/10 rounded-2xl flex items-center justify-center group-hover:border-white/25 transition-all shadow-lg group-hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+              <app.icon size={26} className={`${app.color} transition-transform group-hover:scale-110 drop-shadow-md`} />
             </div>
-            <span className="text-xs text-white/90 text-center drop-shadow-md font-medium tracking-wide">
+            <span className="text-[11px] font-medium text-white/70 group-hover:text-white text-center leading-tight transition-colors break-words w-full">
               {app.title}
             </span>
           </button>

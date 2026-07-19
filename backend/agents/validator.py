@@ -6,60 +6,52 @@
 # =============================================
 import os
 import json
-from openai import OpenAI
 from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
+from typing import List
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
 
-VALIDATOR_PROMPT = """You are a VC diligence AI. Your job is to calculate a 'Trust Score' for claims made in a pitch deck by comparing them to independent web research.
+class ValidationResult(BaseModel):
+    score: int = Field(description="The overall trust score (0-100)")
+    extraction_confidence: float = Field(description="How clear was the claim in the deck? (0.0 - 1.0)")
+    source_reliability: float = Field(description="Is the corroborating source trustworthy? (e.g. GitHub=0.9, Random blog=0.3) (0.0 - 1.0)")
+    corroboration_count: int = Field(description="How many independent sources confirm this?")
+    freshness_days: int = Field(description="Approximate age of the evidence in days (use 0 if unknown)")
+    contradiction_flag: bool = Field(description="True if the web research actively contradicts the claim")
+    reasoning: str = Field(description="Plain English explanation of why it received this score and any contradictions found. Explicitly note Truth-gaps.")
+
+class ValidationList(BaseModel):
+    validations: List[ValidationResult]
+
+VALIDATOR_PROMPT = """You are a VC diligence AI performing a strict Truth-Gap Check. Your job is to calculate a 'Trust Score' for claims made in a pitch deck by comparing them to independent web research.
 
 You will be given:
 1. A list of claims extracted from a pitch deck.
-2. Web research data gathered from GitHub, LinkedIn, News, etc.
+2. Web research data gathered from GitHub, LinkedIn, News, ProductHunt, etc.
 
-For EACH claim, output a validation result with:
-- score (0-100): The overall trust score
-- extraction_confidence (0-1): How clear was the claim in the deck?
-- source_reliability (0-1): Is the corroborating source trustworthy? (e.g. GitHub=0.9, Random blog=0.3)
-- corroboration_count (int): How many independent sources confirm this?
-- freshness_days (int): Approximate age of the evidence in days (use 0 if unknown)
-- contradiction_flag (boolean): Does the web research actively contradict the claim?
-- reasoning (string): Plain English explanation of why it received this score and any contradictions found.
-
-Output strictly as a JSON object where the keys are the exact claim 'statement' strings, and the values are the validation result objects.
-{
-  "Claim statement exactly as provided": {
-    "score": 85,
-    "extraction_confidence": 1.0,
-    "source_reliability": 0.9,
-    "corroboration_count": 1,
-    "freshness_days": 30,
-    "contradiction_flag": false,
-    "reasoning": "..."
-  }
-}
+For EACH claim, output a validation result exactly matching the structured schema.
+If there is a gap or contradiction between the claim and the research, set `contradiction_flag` to true and explicitly state the Truth-gap in the reasoning.
 """
 
 def validate_claims(claims: list, research_data: dict) -> dict:
     """
-    Validates a list of claims against web research data.
+    Validates a list of claims against web research data using structured outputs.
+    Returns a dictionary mapped by claim statement.
     """
     if not claims:
         return {}
         
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": VALIDATOR_PROMPT},
-            {"role": "user", "content": f"Claims:\n{json.dumps(claims, indent=2)}\n\nResearch Data:\n{json.dumps(research_data, indent=2)[:30000]}"}
-        ],
-        temperature=0.1,
-        response_format={"type": "json_object"}
-    )
+    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    llm_with_tools = llm.with_structured_output(ValidationList)
+    prompt = f"{VALIDATOR_PROMPT}\n\nClaims:\n{json.dumps(claims, indent=2)}\n\nResearch Data:\n{json.dumps(research_data, indent=2)[:30000]}"
     
-    result_text = response.choices[0].message.content
     try:
-        return json.loads(result_text)
-    except json.JSONDecodeError:
-        return {"error": "Failed to parse validation data", "raw": result_text}
+        result = llm_with_tools.invoke(prompt)
+        output = {}
+        for claim, val in zip(claims, result.validations):
+            output[claim.get("statement", str(claim))] = val.model_dump()
+        return output
+    except Exception as e:
+        return {"error": f"Failed to parse validation data: {e}", "raw": str(e)}

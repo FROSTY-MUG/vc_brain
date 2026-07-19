@@ -44,13 +44,19 @@ export const WindowComponent: React.FC<WindowProps> = ({ windowState, children }
       dragHandleClassName="window-header"
       style={{ zIndex: windowState.zIndex }}
       onMouseDown={() => focusApp(windowState.id)}
-      className={`glass-panel rounded-xl overflow-hidden shadow-2xl transition-shadow ${
-        isActive ? "shadow-gold-500/20 border-gold-500/30" : ""
+      className={`glass-panel rounded-xl overflow-hidden shadow-2xl transition-all ${
+        isActive 
+          ? "shadow-[var(--accent-dim)] border-[var(--accent)] ring-1 ring-[var(--accent)]" 
+          : "border-white/10 opacity-90 hover:opacity-100"
       }`}
     >
       {/* Title Bar */}
       <div
-        className="window-header h-10 border-b border-[#262626] flex items-center justify-between px-4 cursor-grab active:cursor-grabbing bg-[#121212]"
+        className={`window-header h-12 border-b flex items-center justify-between px-4 cursor-grab active:cursor-grabbing transition-colors ${
+          isActive 
+            ? "bg-[#161616] border-[var(--accent-dim)]" 
+            : "bg-[#121212] border-white/5"
+        }`}
         onDoubleClick={() => maximizeApp(windowState.id)}
       >
         <div className="text-sm font-semibold tracking-wide text-white/90">
@@ -88,7 +94,7 @@ export const WindowComponent: React.FC<WindowProps> = ({ windowState, children }
       </div>
       
       {/* Content */}
-      <div className="absolute top-10 bottom-0 left-0 right-0 overflow-hidden bg-[#0a0a0a]">
+      <div className="absolute top-12 bottom-0 left-0 right-0 overflow-hidden bg-[#0a0a0a] app-window-content">
         {children}
       </div>
     </Rnd>

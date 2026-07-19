@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { DEMO_KPI_CARDS, DEMO_PIPELINE } from "@/data/demoData";
 import {
   TrendingUp, BarChart2, Users, DollarSign, Activity,
   RefreshCw, Loader2, ArrowUp, ArrowDown, Minus, Zap
@@ -29,21 +30,7 @@ interface ApplicationScore {
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-const MOCK_KPI_CARDS: KpiCard[] = [
-  { label: "Applications This Week", value: "12", delta: "+4", deltaDir: "up", sub: "vs last week", color: "text-amber-400" },
-  { label: "Avg Founder Score", value: "74/100", delta: "+2.3", deltaDir: "up", sub: "across all apps", color: "text-blue-400" },
-  { label: "Avg Market Score", value: "68/100", delta: "-1.1", deltaDir: "down", sub: "trending down", color: "text-green-400" },
-  { label: "Deploy Rate", value: "8%", delta: "+2pp", deltaDir: "up", sub: "of screened deals", color: "text-purple-400" },
-  { label: "Diligence Pipeline", value: "5", delta: "0", deltaDir: "flat", sub: "active deals", color: "text-cyan-400" },
-  { label: "Sourced This Month", value: "34", delta: "+12", deltaDir: "up", sub: "outbound signals", color: "text-emerald-400" },
-];
-
-const MOCK_SCORES: ApplicationScore[] = [
-  { id: "a1", company: "Electron AI", sector: "AI Infra", stage: "Seed", founder_score: 88, market_score: 85, idea_score: 90, recommendation: "diligence", thesis_alignment: 92, founder_trend: "rising" },
-  { id: "a2", company: "Flowbit AI", sector: "Dev Tools", stage: "Pre-Seed", founder_score: 72, market_score: 78, idea_score: 68, recommendation: "watch", thesis_alignment: 74, founder_trend: "stable" },
-  { id: "a3", company: "MedScan", sector: "HealthTech", stage: "Pre-Seed", founder_score: 65, market_score: 82, idea_score: 75, recommendation: "diligence", thesis_alignment: 68, founder_trend: "rising" },
-  { id: "a4", company: "CarbonZero", sector: "Climate", stage: "Seed", founder_score: 59, market_score: 71, idea_score: 62, recommendation: "pass", thesis_alignment: 51, founder_trend: "stable" },
-];
+// Uses DEMO_KPI_CARDS and DEMO_PIPELINE as fallback
 
 function DeltaIcon({ dir }: { dir: "up" | "down" | "flat" }) {
   if (dir === "up") return <ArrowUp size={11} className="text-green-400" />;
@@ -76,32 +63,37 @@ const trendIcon = (t: string) => {
 };
 
 export default function TractionApp() {
-  const [scores, setScores] = useState<ApplicationScore[]>(MOCK_SCORES);
-  const [kpis, setKpis] = useState<KpiCard[]>(MOCK_KPI_CARDS);
+  const [scores, setScores] = useState(DEMO_PIPELINE);
+  const [kpis, setKpis] = useState(DEMO_KPI_CARDS);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"kpis" | "pipeline">("kpis");
 
   const refresh = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${API}/api/applications/`).catch(() => null);
-      if (r?.ok) {
-        const apps = await r.json();
-        if (Array.isArray(apps) && apps.length > 0) {
-          const mapped: ApplicationScore[] = apps.map((a: { id: string; startups?: { name?: string; sector?: string; stage?: string }; opportunity_scores?: { founder_score?: number; market_score?: number; idea_score?: number; recommendation?: string; thesis_alignment?: number; founder_trend?: string } }) => ({
-            id: a.id,
-            company: a.startups?.name || "Unknown",
-            sector: a.startups?.sector || "—",
-            stage: a.startups?.stage || "—",
-            founder_score: a.opportunity_scores?.founder_score ?? 50,
-            market_score: a.opportunity_scores?.market_score ?? 50,
-            idea_score: a.opportunity_scores?.idea_score ?? 50,
-            recommendation: a.opportunity_scores?.recommendation || "diligence",
-            thesis_alignment: a.opportunity_scores?.thesis_alignment ?? 50,
-            founder_trend: a.opportunity_scores?.founder_trend || "stable",
-          }));
-          setScores(mapped);
-        }
+      const p1 = fetch(`${API}/api/applications/`).then(r => r.ok ? r.json() : null).catch(() => null);
+      const p2 = fetch('/api/kpis').then(r => r.ok ? r.json() : null).catch(() => null);
+      
+      const [apps, kpisData] = await Promise.all([p1, p2]);
+
+      if (Array.isArray(apps) && apps.length > 0) {
+        const mapped: ApplicationScore[] = apps.map((a: { id: string; startups?: { name?: string; sector?: string; stage?: string }; opportunity_scores?: { founder_score?: number; market_score?: number; idea_score?: number; recommendation?: string; thesis_alignment?: number; founder_trend?: string } }) => ({
+          id: a.id,
+          company: a.startups?.name || "Unknown",
+          sector: a.startups?.sector || "—",
+          stage: a.startups?.stage || "—",
+          founder_score: a.opportunity_scores?.founder_score ?? 50,
+          market_score: a.opportunity_scores?.market_score ?? 50,
+          idea_score: a.opportunity_scores?.idea_score ?? 50,
+          recommendation: a.opportunity_scores?.recommendation || "diligence",
+          thesis_alignment: a.opportunity_scores?.thesis_alignment ?? 50,
+          founder_trend: a.opportunity_scores?.founder_trend || "stable",
+        }));
+        setScores(mapped);
+      }
+      
+      if (Array.isArray(kpisData)) {
+        setKpis(kpisData);
       }
     } finally {
       setLoading(false);

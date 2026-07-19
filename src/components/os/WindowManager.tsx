@@ -13,6 +13,8 @@ import InvestorSearchApp from "../apps/InvestorSearchApp";
 import StartupCollabApp from "../apps/StartupCollabApp";
 import TractionApp from "../apps/TractionApp";
 import AgentHubApp from "../apps/AgentHubApp";
+import PitchDeckApp from "../apps/PitchDeckApp";
+import SettingsApp from "../apps/SettingsApp";
 
 export const WindowManager = () => {
   const { windows } = useOSStore();
@@ -36,6 +38,12 @@ export const WindowManager = () => {
         return <MemoApp />;
       case "agents":
         return <AgentHubApp />;
+
+      // Shared
+      case "pitch-decks":
+        return <PitchDeckApp />;
+      case "settings":
+        return <SettingsApp />;
 
       // Founder apps
       case "investor-search":

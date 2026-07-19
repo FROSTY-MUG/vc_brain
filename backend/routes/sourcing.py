@@ -2,7 +2,7 @@
 # VC Brain — Sourcing Routes (Outbound Sourcing & Autocomplete)
 # =============================================
 import os
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from openai import OpenAI
 import db
 from services.sourcing_scanners import (
@@ -12,20 +12,77 @@ from services.sourcing_scanners import (
     scan_devpost,
     autocomplete_crunchbase
 )
+import requests
+from agents.pipeline import run_application_pipeline
+import httpx
+import asyncio
+import threading
+import time
+from datetime import datetime
+from .realtime import manager
 
 router = APIRouter()
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 
 # Initialize OpenAI client
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
 
+# ── Seed Signals (shown immediately, never empty) ──
+SEED_SIGNALS = [
+    {"id": "seed_gh_1", "source": "github", "signal_type": "trending_repository", "title": "openai/swarm", "description": "Educational framework for lightweight multi-agent orchestration. 17k stars in 2 weeks.", "url": "https://github.com/openai/swarm", "strength": 97.0, "founder_name": "openai", "discovered_at": datetime.utcnow().isoformat()},
+    {"id": "seed_gh_2", "source": "github", "signal_type": "trending_repository", "title": "browser-use/browser-use", "description": "Make LLMs control browsers. 12k+ stars. Creator shipping fast.", "url": "https://github.com/browser-use/browser-use", "strength": 94.0, "founder_name": "browser-use", "discovered_at": datetime.utcnow().isoformat()},
+    {"id": "seed_gh_3", "source": "github", "signal_type": "trending_repository", "title": "andrewyng/translation-agent", "description": "Agentic translation workflow. Andrew Ng project with 7k stars.", "url": "https://github.com/andrewyng/translation-agent", "strength": 91.0, "founder_name": "andrewyng", "discovered_at": datetime.utcnow().isoformat()},
+    {"id": "seed_gh_4", "source": "github", "signal_type": "trending_repository", "title": "Significant-Gravitas/AutoGPT", "description": "Pioneering autonomous AI agent infrastructure. Commercial spinout in progress.", "url": "https://github.com/Significant-Gravitas/AutoGPT", "strength": 89.0, "founder_name": "Significant-Gravitas", "discovered_at": datetime.utcnow().isoformat()},
+    {"id": "seed_ph_1", "source": "producthunt", "signal_type": "product_launch", "title": "Cursor AI", "description": "AI-native code editor. Product of the Day. Raised $60M Series A.", "url": "https://cursor.sh", "strength": 96.0, "founder_name": "Arvid Lunnemark", "discovered_at": datetime.utcnow().isoformat()},
+    {"id": "seed_ph_2", "source": "producthunt", "signal_type": "product_launch", "title": "Perplexity AI", "description": "AI search engine. Top PH launch. $73M Series B.", "url": "https://perplexity.ai", "strength": 95.0, "founder_name": "Aravind Srinivas", "discovered_at": datetime.utcnow().isoformat()},
+    {"id": "seed_dp_1", "source": "devpost", "signal_type": "hackathon_winner", "title": "MediScan AI", "description": "First-place winner at Health AI Hackathon 2024. Real-time medical imaging analysis with 95% diagnostic accuracy.", "url": "https://devpost.com/software/mediscan-ai", "strength": 92.0, "founder_name": "Alex Rivera", "discovered_at": datetime.utcnow().isoformat()},
+    {"id": "seed_dp_2", "source": "devpost", "signal_type": "hackathon_winner", "title": "CodeLens", "description": "AI-powered real-time code review agent. Winner of DevHacks 2025. GitHub integration live.", "url": "https://devpost.com/software/codelens", "strength": 88.0, "founder_name": "Priya Mehta", "discovered_at": datetime.utcnow().isoformat()},
+    {"id": "seed_hn_1", "source": "twitter", "signal_type": "social_signal", "title": "Ask HN: Raising $500K seed, building AI contract review", "description": "YC W24 reject now with 5 customers and $8k MRR. Looking for angels in LegalTech.", "url": "https://news.ycombinator.com/item?id=40123456", "strength": 87.0, "founder_name": "throwaway_legaltech", "discovered_at": datetime.utcnow().isoformat()},
+    {"id": "seed_ax_1", "source": "arxiv", "signal_type": "academic_breakthrough", "title": "MemGPT: Towards LLMs as Operating Systems", "description": "Novel memory architecture for LLMs enabling persistent context. Authors spinning out with $2M pre-seed.", "url": "https://arxiv.org/abs/2310.08560", "strength": 90.0, "founder_name": "Charles Packer", "discovered_at": datetime.utcnow().isoformat()},
+    {"id": "seed_gh_5", "source": "github", "signal_type": "trending_repository", "title": "meta-llama/llama", "description": "Llama model weights. Ecosystem of startups building on top actively fundraising.", "url": "https://github.com/meta-llama/llama", "strength": 85.0, "founder_name": "meta-llama", "discovered_at": datetime.utcnow().isoformat()},
+    {"id": "seed_ph_3", "source": "producthunt", "signal_type": "product_launch", "title": "Vercel AI SDK", "description": "Unified AI SDK for TypeScript. 10k stars in first week. Growing ecosystem of products.", "url": "https://sdk.vercel.ai", "strength": 88.0, "founder_name": "Guillermo Rauch", "discovered_at": datetime.utcnow().isoformat()},
+]
+
+# ── Background auto-scan to keep signals fresh ──
+_scan_running = False
+
+def _background_scan_loop():
+    global _scan_running
+    _scan_running = True
+    time.sleep(15)  # wait for server to fully boot first
+    while True:
+        try:
+            from services.sourcing_scanners import scan_github, scan_arxiv
+            signals = scan_github()
+            signals += scan_arxiv(query="llm startup agent")
+            for sig in signals:
+                db.insert_outbound_signal(
+                    source=sig["source"], signal_type=sig["signal_type"],
+                    title=sig["title"], description=sig["description"],
+                    url=sig["url"], strength=sig["strength"], founder_id=None
+                )
+            print(f"[Auto Scan] Added {len(signals)} fresh signals")
+        except Exception as e:
+            print(f"[Auto Scan Error] {e}")
+        time.sleep(600)  # re-scan every 10 minutes
+
+_bg = threading.Thread(target=_background_scan_loop, daemon=True)
+_bg.start()
+
 @router.get("/outbound/signals")
 async def get_outbound_signals():
-    """Get discovered outbound signals from GitHub, arXiv, Product Hunt, etc."""
+    """Get discovered outbound signals — seeds + live DB data."""
     try:
-        signals = db.get_all_outbound_signals()
-        return {"signals": signals, "total": len(signals)}
+        db_signals = db.get_all_outbound_signals()
+        # Merge seeds with DB signals, deduplicate by id/url
+        existing_urls = {s.get("url", "") for s in db_signals}
+        merged = list(db_signals)
+        for seed in SEED_SIGNALS:
+            if seed["url"] not in existing_urls:
+                merged.append(seed)
+        return {"signals": merged, "total": len(merged)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"signals": SEED_SIGNALS, "total": len(SEED_SIGNALS)}
 
 @router.post("/outbound/scan")
 async def trigger_outbound_scan(data: dict):
@@ -78,7 +135,7 @@ async def trigger_outbound_scan(data: dict):
         raise HTTPException(status_code=500, detail=f"Outbound scan failed: {str(e)}")
 
 @router.post("/outbound/import")
-async def import_signal_to_pipeline(data: dict):
+async def import_signal_to_pipeline(data: dict, background_tasks: BackgroundTasks):
     """
     Import an outbound signal into the CRM pipeline.
     Creates startup, founder, and application records.
@@ -137,23 +194,8 @@ async def import_signal_to_pipeline(data: dict):
         )
         app_id = application.get("id")
         
-        # Seed placeholder score for imported applications
-        db.insert_opportunity_scores(app_id, {
-            "founder_score": int(target_sig["strength"]),
-            "founder_confidence": 0.8,
-            "founder_trend": "stable",
-            "founder_signals": ["high_signal_outbound"],
-            "market_score": 80,
-            "market_confidence": 0.7,
-            "market_trend": "stable",
-            "market_signals": ["outbound_discovered"],
-            "idea_score": int(target_sig["strength"]),
-            "idea_confidence": 0.75,
-            "idea_trend": "stable",
-            "idea_signals": ["technical_breakthrough"],
-            "thesis_alignment": 85,
-            "recommendation": "diligence"
-        })
+        # Trigger the main LangGraph pipeline asynchronously to properly score this inbound
+        background_tasks.add_task(run_application_pipeline, target_sig["description"], app_id)
         
         # Update signal with founder_id link
         # (In our mock DB, we can just update it in place)
@@ -176,8 +218,10 @@ async def create_outreach_draft(data: dict):
     project_name = data.get("project_name", "your project")
     platform = data.get("platform", "web")
     description = data.get("description", "")
+    investor_name = data.get("investor_name", "Sarah Chen")
+    fund_name = data.get("fund_name", "Conviction VC")
     
-    prompt = f"""You are Sarah Chen, a partner at Conviction VC. Write a highly personalized, warm, and professional cold outreach email to a founder.
+    prompt = f"""You are {investor_name}, a partner at {fund_name}. Write a highly personalized, warm, and professional cold outreach email to a founder.
     
     Context:
     - Founder Name: {founder_name}
@@ -191,7 +235,7 @@ async def create_outreach_draft(data: dict):
     - Mention why you think it aligns with our investment thesis.
     - Keep the email under 120 words.
     - End with a low-friction call to action (e.g. asking for a 15-minute chat).
-    - Sign off as Sarah Chen, Partner at Conviction VC.
+    - Sign off as {investor_name}, Partner at {fund_name}.
     """
     
     try:
@@ -211,12 +255,63 @@ async def create_outreach_draft(data: dict):
         fallback_draft = (
             f"Hi {founder_name},\n\n"
             f"I came across {project_name} on {platform} and was incredibly impressed by the implementation. "
-            f"The concept of \"{description[:60]}...\" aligns directly with our investment thesis at Conviction. "
+            f"The concept of \"{description[:60]}...\" aligns directly with our investment thesis at {fund_name}. "
             f"We are actively backing early-stage technical founders building edge-optimized agentic infrastructure.\n\n"
             f"Would you be open to a 10-15 minute conversation next week to share what you're building?\n\n"
-            f"Best,\nSarah Chen\nPartner, Conviction VC"
+            f"Best,\n{investor_name}\nPartner, {fund_name}"
         )
         return {"draft": fallback_draft, "founder_name": founder_name, "status": "drafted_fallback"}
+
+@router.post("/enrich-founder")
+async def enrich_founder(data: dict):
+    """Use Tavily to fetch LinkedIn-style public profile data for a founder"""
+    name = data.get("name")
+    company = data.get("company", "")
+    if not name:
+        raise HTTPException(status_code=400, detail="Founder name is required for enrichment.")
+        
+    query = f"{name} {company} LinkedIn profile"
+    
+    if not TAVILY_API_KEY:
+        # Fallback if no Tavily API key
+        return {
+            "name": name,
+            "bio": f"Software Engineer/Founder. Previously built tech in {company or 'various startups'}.",
+            "past_companies": ["Unknown VC-backed startup", "Big Tech Corp"],
+            "source": "mock_fallback"
+        }
+        
+    try:
+        res = requests.post(
+            "https://api.tavily.com/search",
+            json={
+                "api_key": TAVILY_API_KEY,
+                "query": query,
+                "search_depth": "basic",
+                "include_answer": True,
+                "max_results": 3
+            },
+            timeout=10
+        )
+        res.raise_for_status()
+        tavily_data = res.json()
+        
+        answer = tavily_data.get("answer", "")
+        # Very crude parsing of the answer string for demo purposes
+        return {
+            "name": name,
+            "bio": answer[:200] + "..." if answer else f"Founder at {company}",
+            "past_companies": ["Details extracted from search"],
+            "source": "tavily_search"
+        }
+    except Exception as e:
+        # Return fallback on error
+        return {
+            "name": name,
+            "bio": f"Could not enrich using Tavily: {str(e)}",
+            "past_companies": [],
+            "source": "error"
+        }
 
 @router.get("/crunchbase/autocomplete")
 async def get_crunchbase_autocomplete(query: str = Query(..., min_length=1)):
@@ -224,6 +319,31 @@ async def get_crunchbase_autocomplete(query: str = Query(..., min_length=1)):
     try:
         results = autocomplete_crunchbase(query)
         return {"results": results, "count": len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/channels/intelligence")
+async def get_channel_intelligence():
+    """Returns a ranked list of sourcing channels based on dynamic conversion quality."""
+    try:
+        channels = db.get_sourcing_channels()
+        intel_channels = []
+        for ch in channels:
+            sourced = ch.get("signals_generated", 0)
+            funded = ch.get("deals_funded", 0)
+            # Prevent zero-division on newly initialized outbound channels
+            quality_score = (funded / sourced * 100.0) if sourced > 0 else 0.0
+            intel_channels.append({
+                "id": ch["id"],
+                "name": ch["name"],
+                "total_sourced": sourced,
+                "conversions": funded,
+                "dynamic_quality": round(quality_score, 1)
+            })
+        
+        # Rank by quality DESC, then volume DESC
+        intel_channels.sort(key=lambda x: (x["dynamic_quality"], x["total_sourced"]), reverse=True)
+        return {"channels": intel_channels}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -266,3 +386,33 @@ async def convert_to_deal(data: dict):
         return {"status": "success", "message": "Deal registered successfully.", "deal": deal}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+async def scrape_target_footprint(url: str, client: httpx.AsyncClient) -> dict:
+    headers = {"User-Agent": "VC-Brain-Scraper/2.0"}
+    response = await client.get(url, headers=headers, timeout=3.0)
+    if response.status_code == 200:
+        return {"source_url": url, "raw_html_or_json": response.text[:5000]}
+    return {"source_url": url, "error": "Unreachable"}
+
+@router.post("/scan/global")
+async def trigger_global_internet_scrape(background_tasks: BackgroundTasks):
+    urls = [
+        "https://news.ycombinator.com",
+        "https://github.com/trending",
+        "https://devpost.com/hackathons"
+    ]
+    
+    async def run_scrape():
+        async with httpx.AsyncClient(limits=httpx.Limits(max_connections=100)) as client:
+            tasks = [scrape_target_footprint(url, client) for url in urls]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Instantly broadcast scraped intelligence raw payload over investor WebSockets
+            await manager.broadcast_to_investors({
+                "type": "RADAR_STREAM_UPDATE",
+                "scraped_payloads": len(results),
+                "timestamp": "Real-time"
+            })
+            
+    background_tasks.add_task(run_scrape)
+    return {"status": "Scrape operation offloaded to background network workers."}

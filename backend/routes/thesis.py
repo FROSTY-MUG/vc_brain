@@ -4,24 +4,25 @@
 from fastapi import APIRouter
 from models import ThesisCreate
 
+import db
+
 router = APIRouter()
 
-# In-memory store for hackathon
-_theses = {}
-
 @router.post("/")
-async def create_thesis(thesis: ThesisCreate):
+async def create_thesis(thesis: dict):
     """Create or update an investor's thesis configuration."""
-    thesis_id = f"thesis_{len(_theses) + 1:03d}"
-    _theses[thesis_id] = {"id": thesis_id, **thesis.model_dump()}
-    return _theses[thesis_id]
+    user_id = thesis.get("userId")
+    if not user_id:
+        return {"error": "userId is required"}
+    
+    # Remove userId from thesis data payload if you want, or just store it
+    thesis_data = thesis.copy()
+    
+    return db.upsert_thesis(user_id, thesis_data)
 
-@router.get("/{thesis_id}")
-async def get_thesis(thesis_id: str):
-    if thesis_id in _theses:
-        return _theses[thesis_id]
+@router.get("/{user_id}")
+async def get_thesis(user_id: str):
+    res = db.get_thesis_by_user(user_id)
+    if res:
+        return res
     return {"error": "Thesis not found"}
-
-@router.get("/")
-async def list_theses():
-    return list(_theses.values())

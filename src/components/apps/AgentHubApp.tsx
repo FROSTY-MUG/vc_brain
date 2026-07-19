@@ -15,23 +15,25 @@ interface AgentLog {
 
 const AGENT_CONFIGS = [
   { id: "sourcing", name: "Sourcing Agent", icon: Search, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", description: "Scrapes GitHub, ProductHunt, Devpost to discover founders" },
-  { id: "screening", name: "Screening Agent", icon: Brain, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", description: "Runs 3-axis VC Brain score across all applications" },
+  { id: "screening", name: "Pitch Deck Analyzer", icon: Brain, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", description: "Extracts data from uploaded Pitch Decks and runs VC Brain scoring" },
   { id: "diligence", name: "Diligence Agent", icon: Shield, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20", description: "Validates claims, scrapes LinkedIn & X for social proof" },
   { id: "memo", name: "Memo Agent", icon: FileText, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", description: "Generates evidence-backed investment memos" },
   { id: "memory", name: "Memory Layer", icon: Database, color: "text-cyan-400", bg: "bg-cyan-500/10", border: "border-cyan-500/20", description: "Persists founder scores, trust history, and pipeline state" },
 ];
 
 const INITIAL_LOGS: AgentLog[] = [
-  { id: "1", timestamp: "12:04:01", agent: "Sourcing Agent", action: "Scraped 3 new founders from ProductHunt", status: "success", duration: "2.3s" },
-  { id: "2", timestamp: "12:03:45", agent: "Screening Agent", action: "Scored application #A-2094 — Score: 82/100", status: "success", duration: "4.1s" },
-  { id: "3", timestamp: "12:03:22", agent: "Diligence Agent", action: "Fetching GitHub repos for Arjun Mehta", status: "running" },
-  { id: "4", timestamp: "12:03:10", agent: "Memory Layer", action: "Persisted trust score update for founder #F-0031", status: "success", duration: "0.1s" },
-  { id: "5", timestamp: "12:02:54", agent: "Memo Agent", action: "Generated memo for Flowbit AI — 11 sections", status: "success", duration: "12.4s" },
-  { id: "6", timestamp: "12:02:30", agent: "Sourcing Agent", action: "Webhook received from Devpost", status: "success", duration: "0.4s" },
+  { id: "1", timestamp: "12:04:01", agent: "Sourcing Agent", action: "Scraped 5 new founders from GitHub India — NeuralFlow trending #3", status: "success", duration: "2.3s" },
+  { id: "2", timestamp: "12:03:45", agent: "Screening Agent", action: "Scored Priya Iyer (NeuralFlow) — VC Brain Score: 91/100", status: "success", duration: "4.1s" },
+  { id: "3", timestamp: "12:03:22", agent: "Diligence Agent", action: "Fetching GitHub repos for Divya Menon (CodeLens)", status: "running" },
+  { id: "4", timestamp: "12:03:10", agent: "Memory Layer", action: "Persisted trust score update for Meera Nair (PaySwift)", status: "success", duration: "0.1s" },
+  { id: "5", timestamp: "12:02:54", agent: "Memo Agent", action: "Generated investment memo for NeuralFlow — 14 sections", status: "success", duration: "12.4s" },
+  { id: "6", timestamp: "12:02:30", agent: "Sourcing Agent", action: "Webhook received from Smart India Hackathon Devpost", status: "success", duration: "0.4s" },
+  { id: "7", timestamp: "12:01:55", agent: "Screening Agent", action: "Scored Aditya Shankar (MedBrief AI) — Score: 83/100", status: "success", duration: "3.8s" },
 ];
 
+
 export default function AgentHubApp() {
-  const [logs, setLogs] = useState<AgentLog[]>([]);
+  const [logs, setLogs] = useState<AgentLog[]>(INITIAL_LOGS);
   const [runningAgents, setRunningAgents] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"agents" | "logs">("agents");
 
@@ -59,10 +61,12 @@ export default function AgentHubApp() {
           }
         }
         allLogs.sort((a, b) => new Date(`1970/01/01 ${b.timestamp}`).getTime() - new Date(`1970/01/01 ${a.timestamp}`).getTime());
-        setLogs(allLogs.slice(0, 100));
+        if (allLogs.length > 0) {
+          setLogs(allLogs.slice(0, 100));
+        }
       }
     } catch (e) {
-      console.error(e);
+      // Keep INITIAL_LOGS silently on error
     }
   };
 

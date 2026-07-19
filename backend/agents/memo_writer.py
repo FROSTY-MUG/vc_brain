@@ -14,11 +14,40 @@
 # =============================================
 import os
 import json
-from openai import OpenAI
 from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
+from typing import List
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+
+class MemoRecommendation(BaseModel):
+    action: str = Field(description="'deploy' | 'diligence' | 'watch' | 'pass'")
+    confidence: str = Field(description="'HIGH' | 'MEDIUM' | 'LOW'")
+    reasoning: str = Field(description="string explaining the decision")
+    open_questions: List[str] = Field(description="array of outstanding questions for next meeting")
+
+class MemoSWOT(BaseModel):
+    strengths: List[str]
+    weaknesses: List[str]
+    opportunities: List[str]
+    threats: List[str]
+
+class InvestmentMemo(BaseModel):
+    company_snapshot: str = Field(description="One paragraph 'in a nutshell', include market sizing signal if available")
+    investment_hypotheses: List[str] = Field(description="Array of 'why we want to invest' bullets with citations")
+    swot: MemoSWOT = Field(description="Strengths, weaknesses, opportunities, threats. Evidence-backed bullets.")
+    team_and_history: str = Field(description="Founder background, exec team pedigree, timeline")
+    problem_and_product: str = Field(description="Core problem in plain language, step-by-step product solving it")
+    technology_and_defensibility: str = Field(description="What's proprietary, data moat, architecture choices")
+    market_sizing: str = Field(description="Top-down AND/OR bottom-up TAM/SAM/SOM. Flag missing data as 'not provided'.")
+    competition: str = Field(description="Named competitor clusters and differentiation.")
+    traction_and_kpis: str = Field(description="Customer count, ARR, growth. Explicitly flag missing KPIs.")
+    financials_and_round: str = Field(description="P&L, round size. If missing, explicitly write 'Financials: not disclosed - standard for this stage' or similar.")
+    cap_table: str = Field(description="Ownership details. Usually missing, explicitly write 'Cap table: not disclosed.'")
+    due_diligence_log: str = Field(description="What was checked, what's open/pending.")
+    exit_perspective: str = Field(description="Plausible exit paths.")
+    recommendation: MemoRecommendation = Field(description="Decision output")
 
 MEMO_PROMPT = """You are a top-tier VC Associate at a $100M early-stage fund.
 Write a complete, evidence-backed investment memo following Appendix 1 standards.
@@ -33,9 +62,7 @@ Examples:
   "2 GitHub repos with 500+ stars [Source: GitHub API — alexrivera]"
 
 RULE 2 — GAP-FLAGGING (CRITICAL)
-If ANY information is missing, unavailable, or intentionally withheld (particularly
-Financials & round structure, Cap table, Customer references, Due diligence interviews),
-it MUST be explicitly flagged — never silently omitted or guessed.
+If ANY information is missing, unavailable, or intentionally withheld (particularly Financials & round structure, Cap table, Customer references, Due diligence interviews), it MUST be explicitly flagged — never silently omitted or guessed.
 Use phrases like:
   "Cap table: not disclosed"
   "Customer references: unavailable at this stage"
@@ -43,61 +70,7 @@ Use phrases like:
   "Round size: not confirmed"
 A memo that clearly marks its own gaps is MORE trustworthy than one that fills them invisibly.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REQUIRED SECTIONS (output as JSON):
-
-1. company_snapshot — One paragraph "in a nutshell": market size, structural problem,
-   why it's urgent, how the product solves it. Must include market sizing signal if available.
-
-2. investment_hypotheses — Array of "why we want to invest" bullets. Must cover:
-   team quality, market wedge, stickiness/retention mechanics, traction signal,
-   defensibility, expansion path. Each bullet must cite evidence.
-
-3. swot — Object with: strengths[], weaknesses[], opportunities[], threats[].
-   Each as short, evidence-backed bullet strings. Never generic.
-
-4. team_and_history — Founder background, exec team pedigree, company timeline
-   from founding to today. Address any red flags (e.g. single-founder) explicitly.
-
-5. problem_and_product — Core problem(s) in plain language, then step-by-step
-   product/process solving it.
-
-6. technology_and_defensibility — What's proprietary vs. commoditizable,
-   the data moat, model/architecture choices, why the advantage compounds over time.
-
-7. market_sizing — Top-down AND/OR bottom-up TAM/SAM/SOM with assumptions stated explicitly.
-   If unavailable: "Market sizing: not provided by founders — external estimates used."
-
-8. competition — Named competitor clusters, how each differs from the company,
-   who could become a threat later. Never "no competition exists."
-
-9. traction_and_kpis — Customer count, ARR/revenue, growth trajectory,
-   unit economics (CAC, sales cycle, churn), usage metrics (DAU, etc.).
-   Flag missing KPIs explicitly.
-
-10. financials_and_round — Historical + projected P&L (revenue, EBITDA, opex, COGS),
-    round size, runway, next-round timing.
-    These are almost always confidential — if not provided:
-    "Financials: not disclosed — standard for this stage" or "Round size: not confirmed."
-
-11. cap_table — Pre- and post-round ownership by party, dilution assumptions, VSOP/ESOP.
-    Almost always confidential: "Cap table: not disclosed."
-
-12. due_diligence_log — What was checked (commercial, people, financial, technical),
-    what's open/pending. List each item as checked/open/pending.
-
-13. exit_perspective — Plausible exit paths (strategic acquirers, IPO thesis, comparable exits).
-    Include comparable multiples if available.
-
-14. recommendation — Object with:
-    - action: "deploy" | "diligence" | "watch" | "pass"
-    - confidence: "HIGH" | "MEDIUM" | "LOW"
-    - reasoning: string explaining the decision
-    - open_questions: array of outstanding questions for next meeting
-
-Output strictly as a JSON object with these 14 keys. No markdown fences.
-All string fields may include inline [Source: ...] citations.
-All missing data points must be flagged — never omit silently.
+Output exactly according to the schema provided.
 """
 
 
@@ -107,32 +80,13 @@ def generate_memo(extraction: dict, research: dict, validation: dict, screening:
     Called by both the pipeline (auto) and the on-demand route.
     """
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": MEMO_PROMPT},
-                {
-                    "role": "user",
-                    "content": (
-                        f"PITCH DECK EXTRACTION:\n{json.dumps(extraction, indent=2)[:6000]}\n\n"
-                        f"WEB RESEARCH (GitHub, LinkedIn, News, ProductHunt):\n{json.dumps(research, indent=2)[:12000]}\n\n"
-                        f"VALIDATION (Trust Scores per claim):\n{json.dumps(validation, indent=2)[:4000]}\n\n"
-                        f"SCREENING (3-Axis Scores: Founder / Market / Idea):\n{json.dumps(screening, indent=2)[:3000]}"
-                    )
-                }
-            ],
-            temperature=0.2,
-            response_format={"type": "json_object"}
-        )
-
-        result_text = response.choices[0].message.content
-        memo = json.loads(result_text)
-
-        # Ensure recommendation is a proper dict
-        rec = memo.get("recommendation", {})
-        if isinstance(rec, str):
-            memo["recommendation"] = {"action": rec, "confidence": "LOW", "reasoning": rec, "open_questions": []}
-
+        llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
+        llm_with_tools = llm.with_structured_output(InvestmentMemo)
+        
+        prompt = f"{MEMO_PROMPT}\n\nPITCH DECK EXTRACTION:\n{json.dumps(extraction, indent=2)[:6000]}\n\nWEB RESEARCH:\n{json.dumps(research, indent=2)[:12000]}\n\nVALIDATION:\n{json.dumps(validation, indent=2)[:4000]}\n\nSCREENING:\n{json.dumps(screening, indent=2)[:3000]}"
+        
+        res = llm_with_tools.invoke(prompt)
+        memo = res.model_dump()
         return memo
 
     except json.JSONDecodeError as e:

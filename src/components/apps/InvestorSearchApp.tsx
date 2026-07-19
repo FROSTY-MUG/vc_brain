@@ -20,13 +20,7 @@ interface Investor {
   email?: string;
 }
 
-const MOCK_INVESTORS: Investor[] = [
-  { id: "1", name: "Sarah Chen", firm: "Lightspeed Venture Partners", bio: "Investing in bold founders building developer tools and AI infra. Ex-Google.", sectors: ["AI Infrastructure", "Developer Tools"], stages: ["Pre-Seed", "Seed"], geographies: ["North America"], check_size_min: 100000, check_size_max: 500000, portfolio_count: 23 },
-  { id: "2", name: "Marcus Taylor", firm: "a16z", bio: "Crypto-native VC at a16z. Former founder of 2 B2B SaaS exits. Love operators who've done it before.", sectors: ["Enterprise SaaS", "Fintech"], stages: ["Seed", "Series A"], geographies: ["North America", "Europe"], check_size_min: 500000, check_size_max: 2000000, portfolio_count: 47 },
-  { id: "3", name: "Priya Sharma", firm: "Sequoia Capital India", bio: "Southeast Asia & India focus. HealthTech, FinTech for the next billion users.", sectors: ["HealthTech", "Fintech"], stages: ["Pre-Seed", "Seed"], geographies: ["Asia"], check_size_min: 50000, check_size_max: 300000, portfolio_count: 18 },
-  { id: "4", name: "Lena Müller", firm: "Point Nine Capital", bio: "B2B SaaS specialist. Angel in 60+ companies. Berlin-based but investing globally.", sectors: ["Enterprise SaaS", "Developer Tools"], stages: ["Pre-Seed", "Seed"], geographies: ["Europe", "Global"], check_size_min: 200000, check_size_max: 1000000, portfolio_count: 61 },
-  { id: "5", name: "James O'Brien", firm: "GV (Google Ventures)", bio: "Climate Tech & EdTech investor. Previously scientist. Love deep tech with clear path to scale.", sectors: ["Climate Tech", "EdTech"], stages: ["Seed", "Series A"], geographies: ["North America", "Global"], check_size_min: 300000, check_size_max: 2000000, portfolio_count: 34 },
-];
+// MOCK_INVESTORS removed in favor of API
 
 export default function InvestorSearchApp() {
   const [query, setQuery] = useState("");
@@ -34,16 +28,28 @@ export default function InvestorSearchApp() {
   const [selectedStages, setSelectedStages] = useState<string[]>([]);
   const [selectedGeos, setSelectedGeos] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [pitchModal, setPitchModal] = useState<Investor | null>(null);
   const [pitchMessage, setPitchMessage] = useState("");
   const [sentPitches, setSentPitches] = useState<Set<string>>(new Set());
+  const [investors, setInvestors] = useState<Investor[]>([]);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/investors')
+      .then(r => r.json())
+      .then(data => {
+        setInvestors(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
   const toggleFilter = (arr: string[], item: string, setter: (a: string[]) => void) => {
     setter(arr.includes(item) ? arr.filter(i => i !== item) : [...arr, item]);
   };
 
-  const filtered = MOCK_INVESTORS.filter(inv => {
+  const filtered = investors.filter(inv => {
     const matchQuery = !query || inv.name.toLowerCase().includes(query.toLowerCase()) || 
       (inv.firm || "").toLowerCase().includes(query.toLowerCase()) ||
       (inv.bio || "").toLowerCase().includes(query.toLowerCase());

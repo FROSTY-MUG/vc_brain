@@ -8,6 +8,15 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
   const { data: session, update } = useSession();
   const [role, setRole] = useState<"founder" | "investor" | null>(null);
   const [thesis, setThesis] = useState("");
+  const [fundName, setFundName] = useState("");
+  const [title, setTitle] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [githubUrl, setGithubUrl] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [website, setWebsite] = useState("");
+  const [geography, setGeography] = useState("");
+  const [oneLinePitch, setOneLinePitch] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!session) {
     return (
@@ -69,26 +78,103 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
               <h3 className="text-xl font-semibold mb-2">
                 {role === "investor" ? "Define Your Investment Thesis" : "Tell us about your Startup"}
               </h3>
-              <p className="text-sm text-white/60 mb-4">
-                {role === "investor" 
-                  ? "What criteria are you looking for? (e.g., B2B SaaS, AI Infra, Europe, Technical Founders)" 
-                  : "What are you building? What makes your team exceptional?"}
-              </p>
-              <textarea
-                value={thesis}
-                onChange={(e) => setThesis(e.target.value)}
-                className="w-full h-32 bg-black/50 border border-white/20 rounded-lg p-3 text-white focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/50 transition-all resize-none"
-                placeholder={role === "investor" ? "Enter your thesis..." : "Enter your startup details..."}
-              />
+              
+              {role === "investor" && (
+                <div className="flex flex-col gap-3">
+                  <input type="text" placeholder="Fund Name" value={fundName} onChange={e => setFundName(e.target.value)} className="w-full bg-black/50 border border-white/20 rounded-lg p-3 text-white focus:outline-none focus:border-gold-500/50" />
+                  <input type="text" placeholder="Title/Role (e.g. Partner, Principal)" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-black/50 border border-white/20 rounded-lg p-3 text-white focus:outline-none focus:border-gold-500/50" />
+                  <input type="url" placeholder="LinkedIn URL" value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)} className="w-full bg-black/50 border border-white/20 rounded-lg p-3 text-white focus:outline-none focus:border-gold-500/50" />
+                  <textarea
+                    value={thesis}
+                    onChange={(e) => setThesis(e.target.value)}
+                    className="w-full h-24 bg-black/50 border border-white/20 rounded-lg p-3 text-white focus:outline-none focus:border-gold-500/50 transition-all resize-none"
+                    placeholder="What criteria are you looking for? (e.g., B2B SaaS, AI Infra, Europe, Technical Founders)"
+                  />
+                </div>
+              )}
+
+              {role === "founder" && (
+                <div className="flex flex-col gap-3">
+                  <input type="text" placeholder="Company Name" value={companyName} onChange={e => setCompanyName(e.target.value)} className="w-full bg-black/50 border border-white/20 rounded-lg p-3 text-white focus:outline-none focus:border-gold-500/50" />
+                  <input type="text" placeholder="One-line pitch" value={oneLinePitch} onChange={e => setOneLinePitch(e.target.value)} className="w-full bg-black/50 border border-white/20 rounded-lg p-3 text-white focus:outline-none focus:border-gold-500/50" />
+                  <input type="url" placeholder="Company Website" value={website} onChange={e => setWebsite(e.target.value)} className="w-full bg-black/50 border border-white/20 rounded-lg p-3 text-white focus:outline-none focus:border-gold-500/50" />
+                  <input type="text" placeholder="Geography (e.g. San Francisco, Remote)" value={geography} onChange={e => setGeography(e.target.value)} className="w-full bg-black/50 border border-white/20 rounded-lg p-3 text-white focus:outline-none focus:border-gold-500/50" />
+                  <input type="url" placeholder="LinkedIn URL" value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)} className="w-full bg-black/50 border border-white/20 rounded-lg p-3 text-white focus:outline-none focus:border-gold-500/50" />
+                  <input type="url" placeholder="GitHub URL (Optional)" value={githubUrl} onChange={e => setGithubUrl(e.target.value)} className="w-full bg-black/50 border border-white/20 rounded-lg p-3 text-white focus:outline-none focus:border-gold-500/50" />
+                </div>
+              )}
+              
               <button
+                disabled={isSubmitting}
                 onClick={async () => {
-                  await update({ role, onboarded: true });
-                  onComplete();
+                  setIsSubmitting(true);
+                  try {
+                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+                    const userEmail = session?.user?.email || "";
+                    const userName = session?.user?.name || "User";
+                    const userAvatar = session?.user?.image || "";
+                    
+                    // 1. Save profile
+                    await fetch(`${apiUrl}/api/profile`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        email: userEmail,
+                        name: userName,
+                        avatar_url: userAvatar,
+                        role: role,
+                        onboarded: true
+                      })
+                    });
+                    
+                    // 2. Founder / Investor specific saving
+                    if (role === "founder") {
+                      // Call founders/onboard just in case to sync
+                      await fetch(`${apiUrl}/api/founders/onboard`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email: userEmail, name: userName, avatar_url: userAvatar, role: "founder" })
+                      });
+                      
+                      // Save founder project
+                      await fetch(`${apiUrl}/api/founders/founder-project`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          email: userEmail,
+                          company_name: companyName,
+                          bio: oneLinePitch,
+                          website,
+                          location: geography,
+                          geography
+                        })
+                      });
+                    } else {
+                      // Save thesis / investor specific data
+                      await fetch(`${apiUrl}/api/thesis`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          user_id: userEmail,
+                          fund_name: fundName,
+                          title,
+                          linkedin_url: linkedinUrl,
+                          thesis_statement: thesis
+                        })
+                      });
+                    }
+                    
+                    await update({ role, onboarded: true });
+                    onComplete();
+                  } catch (e) {
+                    console.error("Onboarding error:", e);
+                  } finally {
+                    setIsSubmitting(false);
+                  }
                 }}
-                disabled={thesis.length < 10}
                 className="w-full py-3 bg-gold-500 text-black font-semibold rounded-lg hover:bg-gold-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
-                Enter VC Brain
+                {isSubmitting ? "Saving..." : "Enter VC Brain"}
               </button>
             </div>
           )}

@@ -1,18 +1,16 @@
 import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 
 const handler = NextAuth({
   providers: [
-    CredentialsProvider({
-      name: "Guest Login",
-      credentials: {},
-      async authorize() {
-        return {
-          id: "2",
-          name: "Hack Nation Judge",
-          email: "judge2@hacknation.com",
-        };
-      }
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      authorization: {
+        params: {
+          prompt: "select_account",
+        },
+      },
     }),
   ],
   callbacks: {
@@ -23,7 +21,7 @@ const handler = NextAuth({
       return session;
     },
   },
-  secret: "hacknation_vc_brain_development_secret_2026",
+  secret: process.env.NEXTAUTH_SECRET || "hacknation_vc_brain_development_secret_2026",
 });
 
 export { handler as GET, handler as POST };

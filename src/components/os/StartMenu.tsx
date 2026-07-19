@@ -1,7 +1,7 @@
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
-import { Brain, User, Target, FileText, Search, MessageSquare, LogOut } from "lucide-react";
+import { Brain, User, Target, FileText, Search, MessageSquare, LogOut, Presentation, Settings } from "lucide-react";
 import { useOSStore } from "@/store/useOSStore";
 
 export const StartMenu = () => {
@@ -16,6 +16,8 @@ export const StartMenu = () => {
     { id: "radar", title: "Opportunity Radar", icon: Target, color: "text-gold-400" },
     { id: "memo", title: "Memo Generator", icon: FileText, color: "text-purple-400" },
     { id: "messages", title: "Messages", icon: MessageSquare, color: "text-blue-400" },
+    { id: "pitch-decks", title: "Pitch Decks", icon: Presentation, color: "text-amber-400" },
+    { id: "settings", title: "Settings", icon: Settings, color: "text-white/60" },
   ];
 
   return (

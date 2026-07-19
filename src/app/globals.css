@@ -7,39 +7,64 @@
   --color-gold-600: #d97706;
 }
 
+/* ── Design System ── */
 :root {
-  --background: #080808;
-  --foreground: #fcfcfc;
-  --glass-border: #262626; /* minimal solid border */
-  --glass-bg: #121212; /* solid dark gray */
-  --glass-highlight: transparent;
+  --bg: #0f0f0f;
+  --surface: #161616;
+  --surface-2: #1e1e1e;
+  --border: #2a2a2a;
+  --text-primary: #f5f5f5;
+  --text-secondary: #888888;
+  --text-muted: #555555;
+  --accent: #f59e0b;
+  --accent-dim: rgba(245, 158, 11, 0.12);
+  --radius: 10px;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  overflow: hidden;
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
   margin: 0;
   padding: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-.glass-panel {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  box-shadow: none;
+/* ── Card / Panel ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
-.glass-button {
-  background: #171717;
-  border: 1px solid var(--glass-border);
-  transition: all 0.2s ease;
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
+.btn:hover { background: #242424; border-color: #3a3a3a; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+.btn-primary:hover { background: #e89b08; }
 
-.glass-button:hover {
-  background: #222222;
-  border-color: #404040;
-}
+/* ── Legacy glass classes ── */
+.glass-panel { background: var(--surface); border: 1px solid var(--border); }
+.glass-button { background: var(--surface-2); border: 1px solid var(--border); transition: all 0.15s ease; }
+.glass-button:hover { background: #242424; border-color: #3a3a3a; }
 
 .text-gold-gradient {
   background: linear-gradient(to right, #fbbf24, #f59e0b);
@@ -47,27 +72,93 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
-/* Custom Sleek Scrollbar */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* ── Scrollbar ── */
+.custom-scrollbar { scrollbar-width: thin; scrollbar-color: #333 transparent; }
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #444; }
+
+/* ── Radar sweep (kept for RadarApp) ── */
+@keyframes radar-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100vw); }
+}
+.radar-sweep-line {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 3px;
+  background: rgba(245, 158, 11, 0.25);
+  animation: radar-sweep 5s linear infinite;
+  z-index: 10; pointer-events: none;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
+/* ── Marquee ── */
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.animate-marquee { animation: marquee 30s linear infinite; display: inline-flex; }
+
+/* ── Prevent layout overflow in app windows ── */
+.app-window-content * { max-width: 100%; box-sizing: border-box; }
+.app-window-content input, .app-window-content textarea { min-width: 0; }
+
+/* ── Settings: Density ── */
+[data-density="compact"]  { --space: 0.75rem; }
+[data-density="normal"]   { --space: 1rem; }
+[data-density="spacious"] { --space: 1.4rem; }
+
+/* ── Settings: High Contrast ── */
+[data-contrast="high"] .text-white\/30 { color: rgba(255,255,255,0.65) !important; }
+[data-contrast="high"] .text-white\/40 { color: rgba(255,255,255,0.75) !important; }
+[data-contrast="high"] .text-white\/50 { color: rgba(255,255,255,0.85) !important; }
+[data-contrast="high"] .text-white\/60 { color: rgba(255,255,255,0.92) !important; }
+[data-contrast="high"] .border-white\/5  { border-color: rgba(255,255,255,0.2) !important; }
+[data-contrast="high"] .border-white\/8  { border-color: rgba(255,255,255,0.25) !important; }
+[data-contrast="high"] .border-white\/10 { border-color: rgba(255,255,255,0.35) !important; }
+
+/* ── Settings: Reduced Motion ── */
+[data-motion="reduced"] *,
+[data-motion="reduced"] *::before,
+[data-motion="reduced"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 10px;
+/* ── Settings: Light Theme ── */
+[data-theme="light"] {
+  --bg: #f0f0ea;
+  --surface: #ffffff;
+  --surface-2: #e8e8e2;
+  --border: #d0d0c8;
+  --text-primary: #111111;
+  --text-secondary: #444444;
+  --text-muted: #777777;
 }
+[data-theme="light"] body { background: var(--bg) !important; color: var(--text-primary) !important; }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+/* All the dark bg classes that appear inside windows */
+[data-theme="light"] .bg-\[\#08090c\],
+[data-theme="light"] .bg-\[\#0a0a0a\],
+[data-theme="light"] .bg-\[\#0d0d10\],
+[data-theme="light"] .bg-\[\#0d0e12\],
+[data-theme="light"] .bg-\[\#0f1014\],
+[data-theme="light"] .bg-\[\#111114\],
+[data-theme="light"] .bg-\[\#121212\] {
+  background-color: var(--surface) !important;
+  color: var(--text-primary) !important;
 }
-
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.05);
-}
+[data-theme="light"] .glass-panel { background: var(--surface) !important; border-color: var(--border) !important; }
+[data-theme="light"] .text-white { color: var(--text-primary) !important; }
+[data-theme="light"] .text-white\/90 { color: rgba(17,17,17,0.9) !important; }
+[data-theme="light"] .text-white\/80 { color: rgba(17,17,17,0.8) !important; }
+[data-theme="light"] .text-white\/70 { color: rgba(17,17,17,0.7) !important; }
+[data-theme="light"] .text-white\/60 { color: rgba(17,17,17,0.65) !important; }
+[data-theme="light"] .text-white\/50 { color: rgba(17,17,17,0.55) !important; }
+[data-theme="light"] .text-white\/40 { color: rgba(17,17,17,0.45) !important; }
+[data-theme="light"] .text-white\/30 { color: rgba(17,17,17,0.38) !important; }
+[data-theme="light"] .bg-white\/3,
+[data-theme="light"] .bg-white\/4,
+[data-theme="light"] .bg-white\/5 { background-color: rgba(0,0,0,0.04) !important; }
+[data-theme="light"] .bg-white\/8,
+[data-theme="light"] .bg-white\/10 { background-color: rgba(0,0,0,0.07) !important; }
+[data-theme="light"] .border-white\/5  { border-color: rgba(0,0,0,0.1) !important; }
+[data-theme="light"] .border-white\/8  { border-color: rgba(0,0,0,0.12) !important; }
+[data-theme="light"] .border-white\/10 { border-color: rgba(0,0,0,0.15) !important; }

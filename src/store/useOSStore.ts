@@ -70,8 +70,10 @@ export const useOSStore = create<OSState>((set) => ({
         isMaximized: false,
         zIndex: ++nextZIndex,
         title: app.title,
-        width: 800,
-        height: 600,
+        width: Math.min(1000, typeof window !== 'undefined' ? window.innerWidth - 80 : 1000),
+        height: Math.min(720, typeof window !== 'undefined' ? window.innerHeight - 80 : 720),
+        x: typeof window !== 'undefined' ? Math.max(40, (window.innerWidth - 1000) / 2) : 100,
+        y: typeof window !== 'undefined' ? Math.max(28, (window.innerHeight - 720) / 2 - 20) : 60,
       };
 
       return {

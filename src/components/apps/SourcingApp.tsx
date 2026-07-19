@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { DEMO_SIGNALS } from "@/data/demoData";
 import {
   Radar, GitFork, Search, Zap, Globe, Activity, ExternalLink,
   TrendingUp, Code2, BookOpen, Trophy, RefreshCw, Loader2,
@@ -38,43 +39,7 @@ const SOURCE_COLORS: Record<string, { text: string; bg: string; border: string }
   web:          { text: "text-white/40",    bg: "bg-white/5",        border: "border-white/10"      },
 };
 
-const MOCK_SIGNALS: OutboundSignal[] = [
-  {
-    id: "s1", source: "github", signal_type: "trending_repo",
-    title: "alexrivera/edge-llm-runtime",
-    description: "Custom quantized kernel for on-device LLM inference — 847 stars in 3 days. Contributor shows ex-Google Brain profile.",
-    url: "https://github.com/alexrivera/edge-llm-runtime", strength: 0.92,
-    discovered_at: new Date(Date.now() - 2 * 3600000).toISOString()
-  },
-  {
-    id: "s2", source: "producthunt",signal_type: "top_launch",
-    title: "Flowbit AI — #1 Product of the Day",
-    description: "AI workflow automation tool. 1,200 upvotes in 24h. Solo technical founder, ex-Stripe. No VC backing yet.",
-    url: "https://producthunt.com/posts/flowbit-ai", strength: 0.85,
-    discovered_at: new Date(Date.now() - 5 * 3600000).toISOString()
-  },
-  {
-    id: "s3", source: "devpost", signal_type: "hackathon_winner",
-    title: "MedScan — ETH Global 2025 Winner",
-    description: "AI diagnostic imaging tool. First-time founders from TU Berlin. Won $50K prize. No prior startup experience.",
-    url: "https://devpost.com/software/medscan", strength: 0.78,
-    discovered_at: new Date(Date.now() - 12 * 3600000).toISOString()
-  },
-  {
-    id: "s4", source: "arxiv", signal_type: "paper",
-    title: "\"Efficient Graph Neural Nets for Drug Discovery\" — 3 Authors",
-    description: "PhD candidates at MIT. Paper cited 42 times in 2 months. Lead author building a stealth biotech startup.",
-    url: "https://arxiv.org/abs/2501.00123", strength: 0.71,
-    discovered_at: new Date(Date.now() - 24 * 3600000).toISOString()
-  },
-  {
-    id: "s5", source: "github", signal_type: "repo_activity",
-    title: "mei-lin/carbonledger — 5 commits/day",
-    description: "Open-source carbon accounting tool gaining enterprise interest. Founder profile: ex-Stripe engineer, climate advocate.",
-    url: "https://github.com/mei-lin/carbonledger", strength: 0.67,
-    discovered_at: new Date(Date.now() - 36 * 3600000).toISOString()
-  },
-];
+// Uses DEMO_SIGNALS as fallback when API is unavailable
 
 const CHANNELS = [
   { id: "github", label: "GitHub Trending", icon: GitFork, active: true, count: 12 },
@@ -99,11 +64,34 @@ function StrengthBar({ value }: { value: number }) {
 
 export default function SourcingApp() {
   const [now] = useState(() => Date.now());
-  const [signals, setSignals] = useState<OutboundSignal[]>(MOCK_SIGNALS);
+  const [signals, setSignals] = useState<OutboundSignal[]>([]);
   const [scanning, setScanning] = useState(false);
   const [filter, setFilter] = useState("");
   const [activeTab, setActiveTab] = useState<"signals" | "channels">("signals");
   const [sentOutreach, setSentOutreach] = useState<Set<string>>(new Set());
+  const CACHE_KEY = "sourcing_signals_cache_v2";
+
+  // Load from localStorage immediately, then fetch from API
+  useEffect(() => {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try { setSignals(JSON.parse(cached)); } catch {}
+    } else {
+      // Use demo data immediately so the app is never empty
+      setSignals(DEMO_SIGNALS as OutboundSignal[]);
+    }
+    // Try live data
+    fetch(`${API}/api/sourcing/outbound/signals`)
+      .then(r => r.json())
+      .then(data => {
+        const list = data?.signals || data;
+        if (Array.isArray(list) && list.length > 0) {
+          setSignals(list);
+          localStorage.setItem(CACHE_KEY, JSON.stringify(list));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleScan = async () => {
     setScanning(true);
@@ -117,7 +105,16 @@ export default function SourcingApp() {
       if (r?.ok) {
         const data = await r.json();
         const list = data?.signals || data;
-        if (Array.isArray(list) && list.length > 0) setSignals(list);
+        if (Array.isArray(list) && list.length > 0) {
+          // Append new signals, keep old cached ones
+          setSignals(prev => {
+            const existingIds = new Set(prev.map((s: any) => s.id || s.url));
+            const newOnly = list.filter((s: any) => !existingIds.has(s.id || s.url));
+            const merged = [...newOnly, ...prev];
+            localStorage.setItem(CACHE_KEY, JSON.stringify(merged));
+            return merged;
+          });
+        }
       }
     } finally {
       setScanning(false);

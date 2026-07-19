@@ -77,3 +77,15 @@ async def fetch_application(app_id: str):
 @router.get("/")
 async def list_applications():
     return db.get_all_applications()
+
+@router.post("/{app_id}/convert")
+async def convert_application(app_id: str):
+    """
+    Conversion Webhook (Feedback Loop)
+    Marks the application as Funded and inherently increments the
+    sourcing channel's conversion counter.
+    """
+    res = db.convert_application_to_deal(app_id)
+    if "error" in res:
+        raise HTTPException(status_code=404, detail=res["error"])
+    return res

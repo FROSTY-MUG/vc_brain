@@ -1,5 +1,6 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import {
   User, Settings, Shield, TrendingUp, DollarSign, Globe,
   Tag, CheckCircle2, Edit3, Save, Building2, Target, Zap
@@ -60,10 +61,53 @@ function ToggleChip({
 }
 
 export default function ProfileApp() {
+  const { data: session } = useSession();
   const [thesis, setThesis] = useState<ThesisConfig>(INITIAL_THESIS);
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "thesis" | "stats">("profile");
+  const [kpis, setKpis] = useState<any[]>([]);
+
+  const email = session?.user?.email || "";
+  const name = session?.user?.name || "Investor";
+  const initials = name.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        if (email) {
+          const res = await fetch(`${apiUrl}/api/thesis/${email}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && Object.keys(data).length > 0) {
+              setThesis({
+                fund_name: data.fund_name || INITIAL_THESIS.fund_name,
+                fund_size: data.fund_size || INITIAL_THESIS.fund_size,
+                check_size_min: data.check_size_min || INITIAL_THESIS.check_size_min,
+                check_size_max: data.check_size_max || INITIAL_THESIS.check_size_max,
+                sectors: data.sectors || INITIAL_THESIS.sectors,
+                stages: data.stages || INITIAL_THESIS.stages,
+                geographies: data.geographies || INITIAL_THESIS.geographies,
+                ownership_target: data.ownership_target || INITIAL_THESIS.ownership_target,
+                risk_appetite: data.risk_appetite || INITIAL_THESIS.risk_appetite,
+                dealflow_target: data.dealflow_target || INITIAL_THESIS.dealflow_target,
+              });
+            }
+          }
+        }
+        
+        const kpiRes = await fetch(`${apiUrl}/api/kpis`);
+        if (kpiRes.ok) {
+          const kpiData = await kpiRes.json();
+          setKpis(kpiData);
+        }
+      } catch (e) {
+        console.error("Failed to load profile data", e);
+      }
+    };
+    fetchData();
+  }, [email]);
 
   const toggleSector = (s: string) =>
     setThesis(t => ({
@@ -83,22 +127,32 @@ export default function ProfileApp() {
       geographies: t.geographies.includes(g) ? t.geographies.filter(x => x !== g) : [...t.geographies, g]
     }));
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaved(true);
     setEditing(false);
     setTimeout(() => setSaved(false), 2500);
-    // In production: POST to /api/thesis
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      await fetch(`${apiUrl}/api/thesis`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: email,
+          ...thesis
+        })
+      });
+      // Can also sync profile details here if needed
+    } catch (e) {
+      console.error("Failed to save thesis", e);
+    }
   };
 
-  const STATS = [
-    { label: "Applications Reviewed", value: "48", color: "text-white" },
+  const STATS = kpis.length > 0 ? kpis : [
+    { label: "Applications Reviewed", value: "0", color: "text-white" },
     { label: "Deployed", value: "0", color: "text-green-400" },
-    { label: "In Diligence", value: "5", color: "text-amber-400" },
-    { label: "Watching", value: "8", color: "text-blue-400" },
-    { label: "Passed", value: "35", color: "text-white/40" },
-    { label: "Avg Time to Decision", value: "18h", color: "text-purple-400" },
-    { label: "Outreach Sent", value: "12", color: "text-sky-400" },
-    { label: "Reply Rate", value: "25%", color: "text-emerald-400" },
+    { label: "In Diligence", value: "0", color: "text-amber-400" },
+    { label: "Watching", value: "0", color: "text-blue-400" }
   ];
 
   return (
@@ -146,13 +200,17 @@ export default function ProfileApp() {
           <>
             {/* Avatar card */}
             <div className="bg-gradient-to-br from-rose-500/10 to-purple-500/10 border border-white/8 rounded-2xl p-6 flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-500 to-purple-600 flex items-center justify-center text-2xl font-black text-white shrink-0">
-                SC
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-500 to-purple-600 flex items-center justify-center text-2xl font-black text-white shrink-0 overflow-hidden">
+                {session?.user?.image ? (
+                  <img src={session.user.image} alt={name} className="w-full h-full object-cover" />
+                ) : (
+                  initials
+                )}
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white">Sarah Chen</h3>
+                <h3 className="text-xl font-bold text-white">{name}</h3>
                 <p className="text-sm text-white/50">Principal · {thesis.fund_name}</p>
-                <p className="text-xs text-white/30 mt-1">investor@conviction.vc</p>
+                <p className="text-xs text-white/30 mt-1">{email}</p>
               </div>
             </div>
 
