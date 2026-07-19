@@ -159,6 +159,26 @@ def _seed_in_memory_db():
         "application_id": a1_id,
         "content_json": {
             "summary": "Electron AI is building local agentic runtime with 4x performance. Highly technical founder (ex-Google Brain). Strong thesis alignment.",
+            "company_snapshot": "Electron AI provides a local agentic runtime that allows developers to deploy high-performance LLM agents directly on edge devices. This solves the critical latency and privacy bottlenecks inherent in cloud-hosted models [Source: Industry Report].",
+            "investment_hypotheses": [
+                "Exceptional technical founder with 10+ years of infrastructure experience [Source: LinkedIn].",
+                "Clear market wedge addressing the growing demand for local, privacy-first AI [Source: Developer Survey 2024].",
+                "Strong initial signal with 500+ GitHub stars on their open-source core [Source: GitHub API]."
+            ],
+            "problem_and_product": "Cloud-based AI agents suffer from high latency and data privacy risks, making them unsuitable for real-time edge applications [Source: Gartner 2024]. Electron AI solves this by compiling and quantizing models to run efficiently on local hardware, offering a 4x performance boost via their proprietary runtime engine [Source: Deck].",
+            "technology_and_defensibility": "The core defensibility lies in their proprietary model quantization techniques and low-level hardware optimizations [Source: Tech Specs]. As they deploy more runtimes, their telemetry data will create a compounding advantage in automatic kernel tuning [Source: Founder Call].",
+            "market_sizing": "The TAM for edge AI infrastructure is estimated at $15B by 2028 [Source: PitchBook]. The initial SOM targeting local-first enterprise developers is $500M [Source: Financial Model].",
+            "competition": "Competitors include major cloud providers pushing 'edge' services (AWS Greengrass) and edge ML startups like OctoAI. Electron differentiates through a hyper-focus on local agentic workflows rather than general inference [Source: Competitor Matrix].",
+            "traction_and_kpis": "The company is pre-revenue but has secured 5 unpaid enterprise pilots [Source: Pipeline Document]. The open-source repository is growing 20% MoM with 500+ stars and 30 active contributors [Source: GitHub API].",
+            "team_and_history": "Founded by a former Google Brain researcher [Source: LinkedIn]. The technical team is strong, but the lack of a commercial co-founder is a risk factor that needs addressing [Source: Team Page].",
+            "financials_and_round": "Seeking a $3M Seed round at a $15M post-money valuation [Source: Deck]. Pre-revenue, with a projected burn rate of $150k/mo post-funding [Source: Financial Model].",
+            "cap_table": "Founder retains 85% ownership. 15% allocated to an options pool [Source: Cap Table PDF].",
+            "due_diligence_log": "Technical DD completed (Codebase reviewed). Commercial DD in progress (Pilot customer calls pending). Financial DD open (Waiting on finalized historicals) [Source: Internal Tracker].",
+            "exit_perspective": "Potential acquisition targets include AI hardware companies (NVIDIA, Apple) or cloud providers looking to bolster their edge capabilities (Microsoft, Amazon) [Source: Strategy Memo].",
+            "open_questions": [
+                "How will they monetize the open-source core?",
+                "What is the hiring plan for the commercial team?"
+            ],
             "swot": {
                 "strengths": [
                     {"statement": "Exceptional technical founder with domain expertise", "factors": ["Ex-Google Brain", "10+ years in AI infra"], "conflicts": []},

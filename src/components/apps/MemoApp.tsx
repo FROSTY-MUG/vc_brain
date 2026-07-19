@@ -173,33 +173,35 @@ function SwotSection({ swot }: { swot: Record<string, any[]> }) {
   ];
   return (
     <div className="grid grid-cols-2 gap-3">
-      {quadrants.map(({ key, label, color, bg, hoverBg }) => (
-        <div key={key} className={`${bg} border rounded-xl p-3 flex flex-col h-full`}>
-          <p className={`text-xs font-semibold uppercase tracking-wider ${color} mb-3`}>{label}</p>
-          {Array.isArray(swot[key]) && swot[key].length > 0 ? (
-            <ul className="space-y-2 flex-1">
-              {swot[key].map((item, i) => {
-                const isObj = typeof item === 'object' && item !== null;
-                const statement = isObj ? item.statement : item;
-                const factors = isObj && Array.isArray(item.factors) ? item.factors : [];
-                const conflicts = isObj && Array.isArray(item.conflicts) ? item.conflicts : [];
-                const hasDetails = factors.length > 0 || conflicts.length > 0;
-                
-                return (
-                  <li key={i} className={`relative group rounded-md p-1.5 -ml-1.5 transition-colors ${hasDetails ? hoverBg : ''}`}>
-                    <div className="flex items-start gap-1.5">
-                      <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${color.replace("text-", "bg-")}`} />
-                      <div className="text-xs text-white/70 leading-relaxed flex-1">
-                        <CitedText text={statement} />
-                        {conflicts.length > 0 && (
-                          <AlertTriangle size={12} className="inline ml-1.5 text-red-400 mb-0.5" />
-                        )}
+      {quadrants.map(({ key, label, color, bg, hoverBg }, idx) => {
+        const isBottomRow = idx >= 2;
+        return (
+          <div key={key} className={`${bg} border rounded-xl p-3 flex flex-col h-full`}>
+            <p className={`text-xs font-semibold uppercase tracking-wider ${color} mb-3`}>{label}</p>
+            {Array.isArray(swot[key]) && swot[key].length > 0 ? (
+              <ul className="space-y-2 flex-1">
+                {swot[key].map((item, i) => {
+                  const isObj = typeof item === 'object' && item !== null;
+                  const statement = isObj ? item.statement : item;
+                  const factors = isObj && Array.isArray(item.factors) ? item.factors : [];
+                  const conflicts = isObj && Array.isArray(item.conflicts) ? item.conflicts : [];
+                  const hasDetails = factors.length > 0 || conflicts.length > 0;
+                  
+                  return (
+                    <li key={i} className={`relative group rounded-md p-1.5 -ml-1.5 transition-colors ${hasDetails ? hoverBg : ''}`}>
+                      <div className="flex items-start gap-1.5">
+                        <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${color.replace("text-", "bg-")}`} />
+                        <div className="text-xs text-white/70 leading-relaxed flex-1">
+                          <CitedText text={statement} />
+                          {conflicts.length > 0 && (
+                            <AlertTriangle size={12} className="inline ml-1.5 text-red-400 mb-0.5" />
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    
-                    {/* Hover Tooltip */}
-                    {hasDetails && (
-                      <div className="absolute left-0 top-full mt-1 w-64 bg-[#1a1a1a] border border-white/10 rounded-lg p-3 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                      
+                      {/* Hover Tooltip */}
+                      {hasDetails && (
+                        <div className={`absolute left-0 w-64 bg-[#1a1a1a] border border-white/10 rounded-lg p-3 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 ${isBottomRow ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
                         {factors.length > 0 && (
                           <div className="mb-2">
                             <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Diligence Factors</p>
@@ -232,7 +234,8 @@ function SwotSection({ swot }: { swot: Record<string, any[]> }) {
             <NotDisclosedBadge />
           )}
         </div>
-      ))}
+      );
+    })}
     </div>
   );
 }
