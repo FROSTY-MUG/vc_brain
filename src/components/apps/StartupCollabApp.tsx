@@ -90,8 +90,8 @@ export default function StartupCollabApp() {
     }
   };
 
-  const handleDiscover = async () => {
-    setRefreshing(true);
+  const handleDiscover = async (isBackground = false) => {
+    if (!isBackground) setRefreshing(true);
     try {
       // Simulate API scan time
       await new Promise(r => setTimeout(r, 1200));
@@ -122,9 +122,17 @@ export default function StartupCollabApp() {
       });
 
     } finally {
-      setRefreshing(false);
+      if (!isBackground) setRefreshing(false);
     }
   };
+
+  // Automated background polling every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleDiscover(true);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const filtered = posts.filter(p => {
     const matchQuery = !query || p.author.toLowerCase().includes(query.toLowerCase()) ||

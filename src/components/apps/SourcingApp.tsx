@@ -93,8 +93,8 @@ export default function SourcingApp() {
       .catch(() => {});
   }, []);
 
-  const handleScan = async () => {
-    setScanning(true);
+  const handleScan = async (isBackground = false) => {
+    if (!isBackground) setScanning(true);
     try {
       // Simulate API latency
       await new Promise(r => setTimeout(r, 1500));
@@ -152,9 +152,17 @@ export default function SourcingApp() {
       });
 
     } finally {
-      setScanning(false);
+      if (!isBackground) setScanning(false);
     }
   };
+
+  // Automated background polling every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleScan(true);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const filtered = signals.filter(s =>
     !filter ||
