@@ -22,7 +22,7 @@ export const WindowComponent: React.FC<WindowProps> = ({ windowState, children }
       size={
         windowState.isMaximized
           ? { width: "100%", height: "calc(100% - 48px)" } // Leave space for taskbar
-          : { width: windowState.width, height: windowState.height }
+          : { width: windowState.width ?? 800, height: windowState.height ?? 600 }
       }
       position={
         windowState.isMaximized

@@ -1,47 +1,64 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { WindowManager } from "./WindowManager";
 import { Taskbar } from "./Taskbar";
 import { StartMenu } from "./StartMenu";
-import { User, Target, Search, FileText, Settings } from "lucide-react";
+import { Onboarding } from "./Onboarding";
+import { User, Target, Search, FileText, Settings, MessageSquare } from "lucide-react";
 import { useOSStore } from "@/store/useOSStore";
+import { useSession } from "next-auth/react";
+import { FounderDesktop } from "./FounderDesktop";
+import { InvestorDesktop } from "./InvestorDesktop";
 
 export const Desktop = () => {
   const { openApp } = useOSStore();
+  const { data: session } = useSession();
+  const [onboarded, setOnboarded] = useState<boolean>(false);
+  const [userRole, setUserRole] = useState<string>("investor");
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const desktopIcons = [
-    { id: "thesis", title: "Thesis Engine", icon: Settings, color: "text-slate-400" },
-    { id: "sourcing", title: "Sourcing Terminal", icon: Search, color: "text-green-400" },
-    { id: "radar", title: "Opportunity Radar", icon: Target, color: "text-gold-400" },
-    { id: "memo", title: "Memo Generator", icon: FileText, color: "text-purple-400" },
-  ];
+  useEffect(() => {
+    if (session?.user?.email) {
+      fetch(`/api/profile/${session.user.email}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.onboarded) {
+            setOnboarded(true);
+            setUserRole(data.role);
+          } else {
+            setOnboarded(false);
+          }
+          setLoading(false);
+        })
+        .catch(() => {
+          setLoading(false);
+        });
+    }
+  }, [session]);
+
+  const handleOnboardingComplete = (role: string) => {
+    setOnboarded(true);
+    setUserRole(role);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-black">
+        <div className="animate-pulse text-gold-400 text-sm">Initializing Workstation...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full h-screen overflow-hidden relative selection:bg-gold-500/30 text-foreground">
-      {/* Desktop Background / Mesh Gradient is in body */}
-      
-      {/* Desktop Icons Area */}
-      <div className="p-4 grid grid-cols-1 gap-6 w-28">
-        {desktopIcons.map((app) => (
-          <button
-            key={app.id}
-            onDoubleClick={() => openApp({ id: app.id, title: app.title, icon: "app" })}
-            className="flex flex-col items-center gap-2 p-2 hover:bg-white/10 rounded-lg transition-colors group focus:bg-white/20 outline-none"
-          >
-            <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform backdrop-blur-md">
-              <app.icon className={`${app.color} drop-shadow-md`} size={24} />
-            </div>
-            <span className="text-xs text-white/90 text-center drop-shadow-md font-medium tracking-wide">
-              {app.title}
-            </span>
-          </button>
-        ))}
-      </div>
+    <>
+      {/* Onboarding Overlay */}
+      {!onboarded && <Onboarding onComplete={handleOnboardingComplete} />}
 
-      <WindowManager />
-      <StartMenu />
-      <Taskbar />
-    </div>
+      {/* Render the appropriate desktop based on role */}
+      {onboarded && (
+        userRole === "founder" ? <FounderDesktop /> : <InvestorDesktop />
+      )}
+    </>
   );
 };

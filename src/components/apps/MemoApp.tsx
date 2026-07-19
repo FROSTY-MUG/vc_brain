@@ -1,187 +1,161 @@
-"use client";
+import React, { useState, useEffect } from "react";
+import { FileText, Loader2, Target, ShieldCheck, FileSearch } from "lucide-react";
 
-import React, { useState } from "react";
-import { memos, startups, applications } from "@/data/seed";
-import { CheckCircle2, AlertTriangle, HelpCircle, FileText, Download } from "lucide-react";
+export default function MemoApp() {
+  const [applications, setApplications] = useState<any[]>([]);
+  const [selectedApp, setSelectedApp] = useState<string | null>(null);
+  const [memo, setMemo] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [fetchingApps, setFetchingApps] = useState(true);
 
-const MemoApp = () => {
-  const [selectedMemoId, setSelectedMemoId] = useState("memo_01");
-  const memo = memos.find(m => m.id === selectedMemoId);
-  const application = applications.find(a => a.id === memo?.applicationId);
-  const startup = startups.find(s => s.id === application?.startupId);
+  useEffect(() => {
+    fetch("http://localhost:8000/api/applications")
+      .then(res => res.json())
+      .then(data => {
+        setApplications(data);
+        setFetchingApps(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setFetchingApps(false);
+      });
+  }, []);
 
-  if (!memo) return <div className="p-6 text-white">Loading memo...</div>;
+  const handleGenerateMemo = (appId: string) => {
+    setLoading(true);
+    fetch(`http://localhost:8000/api/memo/generate/${appId}`, { method: "POST" })
+      .then(res => res.json())
+      .then(data => {
+        setMemo(data.memo?.content_json || {});
+        setSelectedApp(appId);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  };
+
+  const loadExistingMemo = (appId: string) => {
+    setLoading(true);
+    fetch(`http://localhost:8000/api/memo/${appId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.content_json) {
+          setMemo(data.content_json);
+          setSelectedApp(appId);
+        } else {
+          // No memo exists, generate one
+          handleGenerateMemo(appId);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  };
+
+  if (fetchingApps) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-[#0a0a0c]">
+        <Loader2 className="animate-spin text-gold-400" size={32} />
+      </div>
+    );
+  }
 
   return (
-    <div className="text-white h-full flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0 bg-black/20">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-purple-500/20 rounded-lg border border-purple-500/30">
-            <FileText className="text-purple-400 w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-white tracking-wide">Investment Memo</h2>
-            <p className="text-[10px] text-white/50">Generated at {new Date(memo.generatedAt).toLocaleString()}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <select 
-            className="bg-black/50 border border-white/20 rounded-md px-2 py-1.5 text-xs outline-none focus:border-purple-500/50"
-            value={selectedMemoId}
-            onChange={(e) => setSelectedMemoId(e.target.value)}
-          >
-            {memos.map(m => {
-               const app = applications.find(a => a.id === m.applicationId);
-               const st = startups.find(s => s.id === app?.startupId);
-               return <option key={m.id} value={m.id}>{st?.name || m.id}</option>;
-            })}
-          </select>
-          <button className="flex items-center gap-2 px-3 py-1.5 glass-button rounded-md text-xs">
-            <Download size={14} /> Export PDF
-          </button>
-        </div>
+    <div className="h-full flex bg-[#0a0a0c] text-white">
+      {/* Sidebar - App Selection */}
+      <div className="w-64 border-r border-white/5 bg-[#121214] p-4 flex flex-col gap-2 overflow-y-auto">
+        <h3 className="text-sm font-bold text-white/50 uppercase tracking-wider mb-2">Deal Flow</h3>
+        {applications.length === 0 ? (
+          <p className="text-white/40 text-sm">No applications available.</p>
+        ) : (
+          applications.map(app => (
+            <button
+              key={app.id}
+              onClick={() => loadExistingMemo(app.id)}
+              className={`text-left p-3 rounded-lg transition-colors border ${
+                selectedApp === app.id ? "bg-white/10 border-white/10" : "bg-transparent border-transparent hover:bg-white/5"
+              }`}
+            >
+              <div className="font-bold truncate">{app.startups?.name || "Unknown"}</div>
+              <div className="text-xs text-white/50 capitalize mt-1">{app.status}</div>
+            </button>
+          ))
+        )}
       </div>
 
-      {/* Memo Content */}
-      <div className="flex-1 overflow-auto p-8 max-w-4xl mx-auto w-full">
-        <div className="glass-panel p-10 rounded-xl bg-white/[0.02]">
-          
-          {/* Title */}
-          <div className="text-center mb-10 pb-6 border-b border-white/10">
-            <h1 className="text-3xl font-serif font-bold text-gold-400 mb-2">{startup?.name}</h1>
-            <p className="text-white/60 uppercase tracking-widest text-xs font-semibold">24-Hour Deployment Memo</p>
+      {/* Main Content - Memo Display */}
+      <div className="flex-1 p-8 overflow-y-auto">
+        {!selectedApp ? (
+          <div className="h-full flex flex-col items-center justify-center text-center text-white/40">
+            <FileSearch size={48} className="mb-4 opacity-50" />
+            <h3 className="text-lg font-bold text-white mb-2">Investment Memos</h3>
+            <p className="max-w-md">Select an application from the sidebar to view or generate its evidence-backed investment memo.</p>
           </div>
-
-          {/* Recommendation Box */}
-          <div className={`p-4 rounded-lg border mb-10 ${
-            memo.recommendation.action === 'deploy' ? 'bg-green-500/10 border-green-500/30' :
-            memo.recommendation.action === 'diligence' ? 'bg-yellow-500/10 border-yellow-500/30' :
-            'bg-red-500/10 border-red-500/30'
-          }`}>
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`text-xs font-bold uppercase tracking-wider ${
-                memo.recommendation.action === 'deploy' ? 'text-green-400' :
-                memo.recommendation.action === 'diligence' ? 'text-yellow-400' :
-                'text-red-400'
-              }`}>
-                Recommendation: {memo.recommendation.action} (Confidence: {memo.recommendation.confidence})
-              </span>
+        ) : loading ? (
+          <div className="h-full flex flex-col items-center justify-center text-center">
+            <Loader2 className="animate-spin text-gold-400 mb-4" size={32} />
+            <h3 className="font-bold text-white">Generating Memo...</h3>
+            <p className="text-white/50 text-sm">Synthesizing extraction, web research, and trust scores.</p>
+          </div>
+        ) : memo ? (
+          <div className="max-w-3xl mx-auto space-y-8 pb-12">
+            <div className="border-b border-white/10 pb-6">
+              <h1 className="text-3xl font-bold mb-2">Investment Memo</h1>
+              <p className="text-white/50">Auto-generated by VC Brain AI Agent</p>
             </div>
-            <p className="text-sm text-white/90 leading-relaxed font-medium">{memo.recommendation.reasoning}</p>
-          </div>
 
-          <div className="space-y-8 font-serif text-sm text-white/80 leading-relaxed">
-            
-            {/* Snapshot */}
-            <section>
-              <h3 className="text-lg font-bold text-white mb-2 font-sans border-b border-white/10 pb-1">1. Company Snapshot</h3>
-              <p>{memo.companySnapshot}</p>
-            </section>
-
-            {/* Hypotheses */}
-            <section>
-              <h3 className="text-lg font-bold text-white mb-2 font-sans border-b border-white/10 pb-1">2. Investment Hypotheses</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                {memo.investmentHypotheses.map((h, i) => <li key={i}>{h}</li>)}
-              </ul>
-            </section>
-
-            {/* Trust Summary */}
-            <section className="bg-black/30 p-4 rounded-lg border border-white/5 my-6">
-              <h3 className="text-sm font-bold text-white mb-3 font-sans flex items-center gap-2">
-                <ShieldCheck size={16} className="text-gold-400" /> Data Trust Summary
-              </h3>
-              <div className="flex gap-6 mb-3 text-xs font-sans">
-                <div><span className="text-white/50">Verified Claims:</span> <span className="font-bold text-green-400">{memo.trustSummary.verifiedClaims}</span></div>
-                <div><span className="text-white/50">Contradictions:</span> <span className="font-bold text-red-400">{memo.trustSummary.contradictions}</span></div>
-                <div><span className="text-white/50">Avg Trust:</span> <span className="font-bold">{memo.trustSummary.avgTrustScore}/100</span></div>
+            {/* Recommendation Badge */}
+            <div className="bg-black/40 p-4 rounded-xl border border-white/10 flex items-center justify-between">
+              <div>
+                <div className="text-xs text-white/50 uppercase tracking-wider mb-1">Recommendation</div>
+                <div className={`text-xl font-bold uppercase ${
+                  memo.recommendation === 'deploy' ? 'text-green-400' :
+                  memo.recommendation === 'diligence' ? 'text-blue-400' : 'text-yellow-400'
+                }`}>
+                  {memo.recommendation || "DILIGENCE"}
+                </div>
               </div>
-              {memo.trustSummary.flags.length > 0 && (
-                <div className="text-xs text-yellow-200/80 font-sans border-l-2 border-yellow-500/50 pl-3">
-                  {memo.trustSummary.flags.map((f, i) => <div key={i}>• {f}</div>)}
-                </div>
-              )}
-            </section>
+              <ShieldCheck className="text-gold-400" size={32} />
+            </div>
 
-            {/* Problem & Product */}
-            <section>
-              <h3 className="text-lg font-bold text-white mb-2 font-sans border-b border-white/10 pb-1">3. Problem & Product</h3>
-              <p>{memo.problemAndProduct}</p>
-            </section>
-
-            {/* Sections Loop */}
+            {/* Sections */}
             {[
-              { title: "4. Traction & KPIs", data: memo.tractionAndKPIs },
-              { title: "5. Team & History", data: memo.teamAndHistory },
-              { title: "6. Technology & Defensibility", data: memo.technologyAndDefensibility },
-              { title: "7. Market Sizing", data: memo.marketSizing },
-              { title: "8. Competition", data: memo.competition },
+              { id: 'company_snapshot', title: 'Company Snapshot' },
+              { id: 'investment_hypotheses', title: 'Investment Hypotheses' },
+              { id: 'swot', title: 'SWOT Analysis' },
+              { id: 'problem_product', title: 'Problem & Product' },
+              { id: 'team_history', title: 'Team & History' },
+              { id: 'tech_defensibility', title: 'Tech & Defensibility' },
+              { id: 'market_sizing', title: 'Market Sizing' },
+              { id: 'traction_kpis', title: 'Traction & KPIs' },
+              { id: 'financials_round', title: 'Financials & Round' },
+              { id: 'cap_table', title: 'Cap Table' }
             ].map(section => (
-              <section key={section.title}>
-                <div className="flex items-center justify-between border-b border-white/10 pb-1 mb-2">
-                  <h3 className="text-lg font-bold text-white font-sans">{section.title}</h3>
-                  <span className={`text-[10px] uppercase font-sans font-bold px-2 py-0.5 rounded ${
-                    section.data.dataStatus === 'available' ? 'bg-green-500/10 text-green-400' :
-                    section.data.dataStatus === 'partial' ? 'bg-yellow-500/10 text-yellow-400' :
-                    'bg-red-500/10 text-red-400'
-                  }`}>
-                    {section.data.dataStatus}
-                  </span>
+              <section key={section.id} className="space-y-3">
+                <h2 className="text-lg font-bold text-gold-400">{section.title}</h2>
+                <div className="text-white/80 leading-relaxed text-sm whitespace-pre-wrap">
+                  {typeof memo[section.id] === 'string' 
+                    ? memo[section.id] 
+                    : Array.isArray(memo[section.id])
+                      ? <ul className="list-disc pl-5 space-y-2">{memo[section.id].map((i: string, idx: number) => <li key={idx}>{i}</li>)}</ul>
+                      : memo[section.id] || <span className="italic text-white/40">Not disclosed.</span>}
                 </div>
-                {section.data.dataStatus === 'missing' ? (
-                  <p className="text-white/40 italic">Data not provided in application materials.</p>
-                ) : (
-                  <>
-                    <p>{section.data.content}</p>
-                    {section.data.citations.length > 0 && (
-                      <p className="text-[10px] text-white/40 font-sans mt-2">
-                        Citations: {section.data.citations.join(", ")}
-                      </p>
-                    )}
-                  </>
-                )}
               </section>
             ))}
 
-            {/* SWOT */}
-            <section>
-              <h3 className="text-lg font-bold text-white mb-4 font-sans border-b border-white/10 pb-1">9. SWOT Analysis</h3>
-              <div className="grid grid-cols-2 gap-6 text-xs font-sans">
-                <div>
-                  <h4 className="font-bold text-green-400 mb-2">Strengths</h4>
-                  <ul className="list-disc pl-4 space-y-1 text-white/70">{memo.swot.strengths.map((s,i) => <li key={i}>{s}</li>)}</ul>
-                </div>
-                <div>
-                  <h4 className="font-bold text-red-400 mb-2">Weaknesses</h4>
-                  <ul className="list-disc pl-4 space-y-1 text-white/70">{memo.swot.weaknesses.map((s,i) => <li key={i}>{s}</li>)}</ul>
-                </div>
-                <div>
-                  <h4 className="font-bold text-blue-400 mb-2">Opportunities</h4>
-                  <ul className="list-disc pl-4 space-y-1 text-white/70">{memo.swot.opportunities.map((s,i) => <li key={i}>{s}</li>)}</ul>
-                </div>
-                <div>
-                  <h4 className="font-bold text-orange-400 mb-2">Threats</h4>
-                  <ul className="list-disc pl-4 space-y-1 text-white/70">{memo.swot.threats.map((s,i) => <li key={i}>{s}</li>)}</ul>
-                </div>
-              </div>
-            </section>
-
-            {/* Open Questions */}
-            <section className="bg-white/5 p-5 rounded-lg">
-              <h3 className="text-lg font-bold text-white mb-3 font-sans flex items-center gap-2">
-                <HelpCircle size={18} className="text-purple-400" /> Open Questions for Diligence
-              </h3>
-              <ul className="list-decimal pl-5 space-y-2 text-white/90">
-                {memo.openQuestions.map((q, i) => <li key={i}>{q}</li>)}
-              </ul>
-            </section>
-
+            <div className="mt-12 pt-6 border-t border-white/10 text-center text-xs text-white/30">
+              Generated via VC Brain AI Pipeline. Citations and trust scores are based on real-time web research.
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="h-full flex items-center justify-center">
+            <p className="text-white/40">Failed to load memo.</p>
+          </div>
+        )}
       </div>
     </div>
   );
-};
-
-export default MemoApp;
+}

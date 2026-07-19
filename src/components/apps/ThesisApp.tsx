@@ -11,7 +11,20 @@ const GEOS = ["North America", "Europe", "Asia", "Latin America", "Africa", "Glo
 const RISK_LEVELS = ["conservative", "moderate", "aggressive"] as const;
 
 const ThesisApp = () => {
-  const [thesis, setThesis] = useState<InvestorThesis>(demoThesis);
+  const [thesis, setThesis] = useState<InvestorThesis>(demoThesis || {
+    id: "",
+    userId: "",
+    sectors: [],
+    stages: [],
+    geographies: [],
+    checkSizeMin: 25000,
+    checkSizeMax: 250000,
+    ownershipTarget: 5.0,
+    riskAppetite: "moderate",
+    keywords: [],
+    description: "",
+    updatedAt: ""
+  });
   const [newKeyword, setNewKeyword] = useState("");
   const [saved, setSaved] = useState(false);
 

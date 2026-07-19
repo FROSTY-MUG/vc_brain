@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
-import { Brain, User, Target, FileText, Search } from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
+import { Brain, User, Target, FileText, Search, MessageSquare, LogOut } from "lucide-react";
 import { useOSStore } from "@/store/useOSStore";
 
 export const StartMenu = () => {
   const { startMenuOpen, openApp } = useOSStore();
+  const { data: session } = useSession();
 
   if (!startMenuOpen) return null;
 
@@ -14,6 +15,7 @@ export const StartMenu = () => {
     { id: "sourcing", title: "Sourcing Terminal", icon: Search, color: "text-green-400" },
     { id: "radar", title: "Opportunity Radar", icon: Target, color: "text-gold-400" },
     { id: "memo", title: "Memo Generator", icon: FileText, color: "text-purple-400" },
+    { id: "messages", title: "Messages", icon: MessageSquare, color: "text-blue-400" },
   ];
 
   return (
@@ -50,11 +52,23 @@ export const StartMenu = () => {
       
       <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between px-2">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-gold-600 to-gold-400 flex items-center justify-center text-white font-bold text-xs shadow-[0_0_10px_rgba(251,191,36,0.3)]">
-            U
-          </div>
-          <span className="text-sm text-white/90">User Profile</span>
+          {session?.user?.image ? (
+            <img src={session.user.image} alt="Avatar" className="w-8 h-8 rounded-full border border-white/20" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-gold-600 to-gold-400 flex items-center justify-center text-white font-bold text-xs shadow-[0_0_10px_rgba(251,191,36,0.3)]">
+              {session?.user?.name?.[0] || 'U'}
+            </div>
+          )}
+          <span className="text-sm text-white/90">{session?.user?.name || 'User Profile'}</span>
         </div>
+        
+        <button 
+          onClick={() => signOut()}
+          className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/60 hover:text-red-400"
+          title="Logout"
+        >
+          <LogOut size={18} />
+        </button>
       </div>
     </div>
   );
