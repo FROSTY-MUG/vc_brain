@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { DEMO_SIGNALS } from "@/data/demoData";
 import {
   Radar, GitFork, Search, Zap, Globe, Activity, ExternalLink,
@@ -67,31 +67,53 @@ export default function SourcingApp() {
   const [signals, setSignals] = useState<OutboundSignal[]>([]);
   const [scanning, setScanning] = useState(false);
   const [filter, setFilter] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [activeTab, setActiveTab] = useState<"signals" | "channels">("signals");
   const [sentOutreach, setSentOutreach] = useState<Set<string>>(new Set());
   const CACHE_KEY = "sourcing_signals_cache_v2";
 
-  // Load from localStorage immediately, then fetch from API
+  // Load from localStorage immediately, then fetch from API with natural language filtering
   useEffect(() => {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-      try { setSignals(JSON.parse(cached)); } catch {}
-    } else {
-      // Use demo data immediately so the app is never empty
-      setSignals(DEMO_SIGNALS as OutboundSignal[]);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    if (!filter.trim()) {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try { setSignals(JSON.parse(cached)); } catch {}
+      } else {
+        setSignals(DEMO_SIGNALS as OutboundSignal[]);
+      }
     }
-    // Try live data
-    fetch(`${API}/api/sourcing/outbound/signals`)
-      .then(r => r.json())
-      .then(data => {
-        const list = data?.signals || data;
-        if (Array.isArray(list) && list.length > 0) {
-          setSignals(list);
-          localStorage.setItem(CACHE_KEY, JSON.stringify(list));
-        }
-      })
-      .catch(() => {});
-  }, []);
+
+    searchTimeoutRef.current = setTimeout(() => {
+      if (filter.trim()) {
+        setIsSearching(true);
+      }
+      
+      const url = filter.trim() 
+        ? `${API}/api/sourcing/outbound/signals?q=${encodeURIComponent(filter)}`
+        : `${API}/api/sourcing/outbound/signals`;
+
+      fetch(url)
+        .then(r => r.json())
+        .then(data => {
+          const list = data?.signals || data;
+          if (Array.isArray(list) && list.length > 0) {
+            setSignals(list);
+            if (!filter.trim()) {
+              localStorage.setItem(CACHE_KEY, JSON.stringify(list));
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => setIsSearching(false));
+    }, filter.trim() ? 800 : 0);
+
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [filter]);
 
   const handleScan = async () => {
     setScanning(true);
@@ -121,12 +143,7 @@ export default function SourcingApp() {
     }
   };
 
-  const filtered = signals.filter(s =>
-    !filter ||
-    s.title.toLowerCase().includes(filter.toLowerCase()) ||
-    s.description.toLowerCase().includes(filter.toLowerCase()) ||
-    s.source.toLowerCase().includes(filter.toLowerCase())
-  );
+  // We no longer filter client-side, the backend LLM handles semantic natural language filtering!
 
   const timeAgo = (iso: string) => {
     const diff = now - new Date(iso).getTime();
@@ -190,16 +207,17 @@ export default function SourcingApp() {
           <>
             {/* Search */}
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-              <Search size={14} className="text-white/30" />
+              <Search size={14} className={isSearching ? "text-emerald-400 animate-pulse" : "text-white/30"} />
               <input
                 value={filter}
                 onChange={e => setFilter(e.target.value)}
-                placeholder="Filter signals…"
+                placeholder="I am searching after |"
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/20"
               />
+              {isSearching && <Loader2 size={14} className="animate-spin text-emerald-400" />}
             </div>
 
-            {filtered.map(signal => {
+            {signals.map(signal => {
               const SrcIcon = SOURCE_ICONS[signal.source] || Globe;
               const srcColor = SOURCE_COLORS[signal.source] || SOURCE_COLORS.web;
               const isSent = sentOutreach.has(signal.id);

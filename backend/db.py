@@ -551,12 +551,14 @@ def get_all_applications() -> list:
         for app in _in_memory_db["applications"]:
             app_copy = app.copy()
             app_copy["startups"] = next((s for s in _in_memory_db["startups"] if s["id"] == app["startup_id"]), None)
+            app_copy["opportunity_scores"] = next((o for o in _in_memory_db["opportunity_scores"] if o["application_id"] == app["id"]), None)
+            app_copy["memos"] = next((m for m in _in_memory_db["memos"] if m["application_id"] == app["id"]), None)
             res.append(app_copy)
         res.sort(key=lambda x: x.get("submitted_at", ""), reverse=True)
         return res
         
     sb = get_supabase()
-    result = sb.table("applications").select("*, startups(*)").order("submitted_at", desc=True).execute()
+    result = sb.table("applications").select("*, startups(*), opportunity_scores(*), memos(*)").order("submitted_at", desc=True).execute()
     return result.data or []
 
 def get_application(app_id: str) -> dict:

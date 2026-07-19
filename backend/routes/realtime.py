@@ -11,8 +11,9 @@ initial_founders = []
 @router.on_event("startup")
 async def load_initial_cache():
     global initial_investors, initial_founders
+    from routes.sourcing import SEED_SIGNALS
     initial_investors = db.get_all_investors()
-    initial_founders = db.get_all_outbound_signals()
+    initial_founders = SEED_SIGNALS + db.get_all_outbound_signals()
 
 class ConnectionManager:
     def __init__(self):

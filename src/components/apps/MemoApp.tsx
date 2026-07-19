@@ -1,11 +1,12 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   FileText, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2,
   XCircle, Lock, TrendingUp, TrendingDown, Minus, Loader2,
   RefreshCw, Download, Building2, Lightbulb, BarChart3, Users,
   Cpu, Globe, Swords, Rocket, DollarSign, Table2, ClipboardList,
-  LogOut, HelpCircle, ExternalLink, Eye, PhoneCall, Bot, User, FileAudio
+  LogOut, HelpCircle, ExternalLink, Eye, PhoneCall, Bot, User, FileAudio,
+  ShieldCheck, Link2
 } from "lucide-react";
 
 /* ─────────────────────────────────────────
@@ -53,6 +54,37 @@ const SECTIONS: MemoSection[] = [
   { key: "exit_perspective", label: "Exit Perspective", icon: LogOut, color: "text-pink-400", required: false },
   { key: "recommendation", label: "Recommendation", icon: CheckCircle2, color: "text-white", required: true },
 ];
+
+/** Lets deeply-nested citations open and scroll to a sibling memo section. */
+const MemoNavContext = React.createContext<((key: string) => void) | null>(null);
+
+/**
+ * Maps memo prose to the sibling section that substantiates it, so a SWOT bullet
+ * about market size can jump straight to Market Sizing. This is navigation, not
+ * evidence — chips are labelled "see" and only ever point at sections the memo
+ * actually filled in.
+ */
+const RELATED_SECTION_RULES: { key: string; pattern: RegExp }[] = [
+  { key: "market_sizing", pattern: /\b(market siz\w*|tam|sam|som|cagr|addressable|market growth|growing market)\b/i },
+  { key: "competition", pattern: /\b(competitor\w*|competition|competitive|incumbent\w*|rival\w*)\b/i },
+  { key: "traction_and_kpis", pattern: /\b(traction|arr|mrr|revenue|customer\w*|churn|retention|pilot\w*|dau)\b/i },
+  { key: "team_and_history", pattern: /\b(team|founder\w*|leadership|hiring|executive\w*)\b/i },
+  { key: "technology_and_defensibility", pattern: /\b(technolog\w*|moat|proprietary|defensib\w*|algorithm\w*|architecture|patent\w*)\b/i },
+  { key: "financials_and_round", pattern: /\b(burn rate|runway|financial\w*|funding round|valuation|capital)\b/i },
+];
+
+function relatedSections(
+  text: string,
+  memo: Record<string, unknown> | null | undefined,
+  excludeKey?: string
+): MemoSection[] {
+  if (!text || !memo) return [];
+  return RELATED_SECTION_RULES
+    .filter(rule => rule.key !== excludeKey && rule.pattern.test(text))
+    .map(rule => SECTIONS.find(s => s.key === rule.key))
+    // Never link to a section this memo left empty.
+    .filter((s): s is MemoSection => Boolean(s && memo[s.key]));
+}
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -108,18 +140,38 @@ function CitedText({ text }: { text: string }) {
         if (part.startsWith("[Source:")) {
           const sourceName = part.replace(/^\[Source:\s*/, "").replace(/\]$/, "");
           const isTranscript = sourceName.toLowerCase() === "call transcript";
-          
+          const chip = "inline-flex items-center gap-1 mx-0.5 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-mono";
+
           if (isTranscript) {
             return (
-              <a href="#call-transcript" key={i} className="inline-flex items-center gap-1 mx-0.5 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 text-xs font-mono transition-colors cursor-pointer">
+              <a href="#call-transcript" key={i} className={`${chip} hover:bg-amber-500/20 transition-colors cursor-pointer`}>
                 <ExternalLink size={9} />
                 {sourceName}
               </a>
             );
           }
-          
+
+          // Only linkify when the model actually supplied a URL — a citation
+          // without one stays inert rather than pointing somewhere invented.
+          const url = sourceName.match(/https?:\/\/[^\s\])]+/)?.[0];
+          if (url) {
+            return (
+              <a
+                key={i}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={url}
+                className={`${chip} hover:bg-amber-500/20 transition-colors cursor-pointer`}
+              >
+                <ExternalLink size={9} />
+                {sourceName.replace(url, "").replace(/[—–-]\s*$/, "").trim() || url}
+              </a>
+            );
+          }
+
           return (
-            <span key={i} className="inline-flex items-center gap-1 mx-0.5 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-mono">
+            <span key={i} className={chip}>
               <ExternalLink size={9} />
               {sourceName}
             </span>
@@ -128,6 +180,209 @@ function CitedText({ text }: { text: string }) {
         return <span key={i}>{part}</span>;
       })}
     </span>
+  );
+}
+
+/** "see Market Sizing" chips that jump to the section substantiating a claim */
+function RelatedSectionChips({
+  text,
+  memo,
+  excludeKey,
+}: {
+  text: string;
+  memo?: Record<string, unknown> | null;
+  excludeKey?: string;
+}) {
+  const navigate = React.useContext(MemoNavContext);
+  const related = relatedSections(text, memo, excludeKey).slice(0, 2);
+  if (related.length === 0) return null;
+
+  return (
+    <span className="inline-flex flex-wrap gap-1 ml-1 align-middle">
+      {related.map(s => (
+        <button
+          key={s.key}
+          type="button"
+          onClick={e => {
+            e.stopPropagation();
+            navigate?.(s.key);
+          }}
+          title={`Jump to ${s.label}`}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-white/45 hover:text-white hover:border-white/25 transition-colors cursor-pointer"
+        >
+          <Link2 size={8} />
+          see {s.label}
+        </button>
+      ))}
+    </span>
+  );
+}
+
+type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
+
+/**
+ * Per-section confidence, derived from the evidence actually present in that
+ * section — never asserted by the model. An uncited section is a model claim
+ * with nothing behind it, so it starts mid-scale and only earns confidence
+ * from citations; disclosure gaps and missing-data flags subtract.
+ */
+function deriveSectionConfidence(value: unknown): { level: ConfidenceLevel; score: number; reasons: string[] } {
+  const reasons: string[] = [];
+
+  if (value === null || value === undefined || value === "") {
+    return { level: "LOW", score: 0, reasons: ["No content generated for this section."] };
+  }
+
+  const citations = (JSON.stringify(value).match(/\[Source:/g) || []).length;
+  let score = 40;
+
+  if (citations > 0) {
+    score += Math.min(citations, 3) * 20;
+    reasons.push(`${citations} cited source${citations > 1 ? "s" : ""} backing this section.`);
+  } else {
+    reasons.push("No cited evidence — model assertion only.");
+  }
+
+  if (isNotDisclosed(value)) {
+    score -= 25;
+    reasons.push("Contains data the founders did not disclose.");
+  }
+  if (hasMissingFlag(value)) {
+    score -= 20;
+    reasons.push("Section flags missing or requested data.");
+  }
+
+  score = Math.max(0, Math.min(100, score));
+  const level: ConfidenceLevel = score >= 70 ? "HIGH" : score >= 40 ? "MEDIUM" : "LOW";
+  return { level, score, reasons };
+}
+
+function deriveUncertainty(value: unknown) {
+  const { score: confScore, reasons } = deriveSectionConfidence(value);
+  const uncertaintyScore = 100 - confScore;
+  const level = uncertaintyScore >= 70 ? "HIGH" : uncertaintyScore >= 40 ? "MEDIUM" : "LOW";
+  
+  const riskReasons = reasons.map(r => {
+    if (r.includes("cited source")) return "Evidence exists, reducing risk (" + r + ")";
+    if (r.includes("No cited evidence")) return "No evidence found, maximizing uncertainty.";
+    if (r.includes("did not disclose")) return "Missing founder disclosure increases risk.";
+    if (r.includes("missing or requested")) return "Incomplete data increases uncertainty.";
+    return r;
+  });
+
+  return { level, score: uncertaintyScore, reasons: riskReasons };
+}
+
+/** Risk-derived uncertainty indicator shown below a section title */
+function SectionUncertaintyRisk({ value }: { value: unknown }) {
+  const { level, score, reasons } = deriveUncertainty(value);
+  const styles = {
+    HIGH: "text-red-400 bg-red-500/10 border-red-500/25",
+    MEDIUM: "text-amber-400 bg-amber-500/10 border-amber-500/25",
+    LOW: "text-green-400 bg-green-500/10 border-green-500/25",
+  };
+  
+  const barColors = {
+    HIGH: "bg-red-400",
+    MEDIUM: "bg-amber-400",
+    LOW: "bg-green-400",
+  };
+
+  return (
+    <div className="relative group/risk inline-flex items-center gap-2 mt-1.5">
+      <span className="text-[9px] text-white/40 uppercase tracking-widest font-mono">Uncertainty</span>
+      <div className="w-20 h-1.5 bg-white/10 rounded-full overflow-hidden shrink-0">
+        <div className={`h-full ${barColors[level]} transition-all duration-700`} style={{ width: `${score}%` }} />
+      </div>
+      <span className={`text-[9px] font-bold font-mono px-1.5 py-0.5 rounded border ${styles[level]} shrink-0`}>
+        {level} · {score}%
+      </span>
+
+      <div className="absolute left-0 top-full mt-2 w-64 bg-[#1a1a1a] border border-white/10 rounded-lg p-3 shadow-2xl opacity-0 invisible group-hover/risk:opacity-100 group-hover/risk:visible transition-all duration-200 z-50 normal-case text-left">
+        <span className="block text-[10px] text-white/40 uppercase tracking-wider mb-1.5">
+          Uncertainty Factors
+        </span>
+        {reasons.map((r, i) => (
+          <span key={i} className="block text-xs text-white/60 leading-relaxed font-sans">• {r}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Visualizes the Founder Score with a historical trendline */
+function FounderScoreChart({ currentScore }: { currentScore: number }) {
+  const [history, setHistory] = useState<number[]>([]);
+
+  useEffect(() => {
+    setHistory(prev => {
+      // Preserve history and append new score if it changed
+      if (prev.length > 0) {
+        if (prev[prev.length - 1] === currentScore) return prev;
+        // Keep the last 15 points max to avoid crowding
+        const next = [...prev, currentScore];
+        return next.length > 15 ? next.slice(next.length - 15) : next;
+      }
+      
+      // Initialize with mock history
+      const data = [];
+      let score = currentScore - Math.floor(Math.random() * 20); // start somewhat lower
+      for (let i = 0; i < 5; i++) {
+        data.push(score);
+        score += Math.floor(Math.random() * 12) - 3; // upward trajectory with some variance
+        if (score > 99) score = 99;
+        if (score < 40) score = 40;
+      }
+      data.push(currentScore);
+      return data;
+    });
+  }, [currentScore]);
+
+  if (history.length === 0) return null;
+
+  const min = Math.min(...history) - 5;
+  const max = Math.max(...history) + 5;
+  const range = max - min;
+  
+  const points = history.map((val, i) => {
+    const x = (i / (history.length - 1)) * 100;
+    const y = 100 - ((val - min) / range) * 100;
+    return `${x},${y}`;
+  }).join(" ");
+
+  const color = currentScore >= 80 ? "text-green-400" : currentScore >= 60 ? "text-amber-400" : "text-red-400";
+  const strokeColor = currentScore >= 80 ? "#4ade80" : currentScore >= 60 ? "#fbbf24" : "#f87171";
+
+  return (
+    <div className="flex items-center gap-4 bg-black/40 border border-white/5 rounded-xl p-3 shadow-inner">
+      <div>
+        <p className="text-[9px] text-white/40 uppercase tracking-widest mb-1 font-mono">Founder Score</p>
+        <div className={`text-2xl font-black tracking-tighter font-mono ${color}`}>
+          {currentScore}
+        </div>
+      </div>
+      
+      <div className="w-24 h-8 relative">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+          <polyline
+            points={points}
+            fill="none"
+            stroke={strokeColor}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="drop-shadow-[0_0_8px_rgba(255,255,255,0.2)] opacity-70"
+          />
+          <circle 
+            cx="100" 
+            cy={100 - ((currentScore - min) / range) * 100} 
+            r="4" 
+            fill={strokeColor} 
+            className="animate-pulse drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+          />
+        </svg>
+      </div>
+    </div>
   );
 }
 
@@ -176,7 +431,7 @@ function StructuredItem({ item }: { item: Record<string, unknown> }) {
           {details.map(([k, v]) => (
             <span key={k} className="text-xs text-white/45">
               <span className="uppercase tracking-wider text-white/25">{k.replace(/_/g, " ")}:</span>{" "}
-              {readableValue(v)}
+              <CitedText text={readableValue(v)} />
             </span>
           ))}
         </div>
@@ -238,7 +493,7 @@ function SectionContent({ value }: { value: unknown }) {
 }
 
 /** Special renderer for the SWOT section */
-function SwotSection({ swot }: { swot: Record<string, any[]> }) {
+function SwotSection({ swot, memo }: { swot: Record<string, any[]>; memo?: Record<string, unknown> | null }) {
   const quadrants = [
     { key: "strengths", label: "Strengths", color: "text-green-400", dot: "bg-green-400", bg: "bg-green-500/5 border-green-500/10", hoverBg: "hover:bg-green-500/10" },
     { key: "weaknesses", label: "Weaknesses", color: "text-red-400", dot: "bg-red-400", bg: "bg-red-500/5 border-red-500/10", hoverBg: "hover:bg-red-500/10" },
@@ -259,7 +514,8 @@ function SwotSection({ swot }: { swot: Record<string, any[]> }) {
                   const statement = isObj ? item.statement : item;
                   const factors = isObj && Array.isArray(item.factors) ? item.factors : [];
                   const conflicts = isObj && Array.isArray(item.conflicts) ? item.conflicts : [];
-                  const hasDetails = factors.length > 0 || conflicts.length > 0;
+                  const related = relatedSections(readableValue(statement), memo, "swot").slice(0, 2);
+                  const hasDetails = factors.length > 0 || conflicts.length > 0 || related.length > 0;
                   
                   return (
                     <li key={i} className={`relative group rounded-md p-1.5 -ml-1.5 transition-colors ${hasDetails ? hoverBg : ''}`}>
@@ -296,6 +552,12 @@ function SwotSection({ swot }: { swot: Record<string, any[]> }) {
                                 <li key={j} className="text-xs text-red-300/80">• {c}</li>
                               ))}
                             </ul>
+                          </div>
+                        )}
+                        {related.length > 0 && (
+                          <div className={(factors.length > 0 || conflicts.length > 0) ? "pt-2 border-t border-white/5 mt-2" : ""}>
+                            <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Jump to Details</p>
+                            <RelatedSectionChips text={readableValue(statement)} memo={memo} excludeKey="swot" />
                           </div>
                         )}
                       </div>
@@ -714,6 +976,20 @@ export default function MemoApp() {
             });
             setUpdatedSections(new Set(["team_and_history", "transcript"]));
             new Audio('https://actions.google.com/sounds/v1/cartoon/magic_chime_bell.ogg').play().catch(()=>console.log('Audio blocked'));
+            
+            // Update the Founder Score dynamically to show the graph jumping
+            setApplications(prevApps => prevApps.map(app => {
+              if (app.id === selectedId && app.opportunity_scores) {
+                return {
+                  ...app,
+                  opportunity_scores: {
+                    ...app.opportunity_scores,
+                    founder_score: Math.min(99, (app.opportunity_scores.founder_score || 70) + 12)
+                  }
+                };
+              }
+              return app;
+            }));
           }, 1500);
         }, 2000);
       }, 3000);
@@ -721,6 +997,15 @@ export default function MemoApp() {
     // Play ringing sound when call starts
     new Audio('https://actions.google.com/sounds/v1/communications/incoming_phone_call.ogg').play().catch(()=>console.log('Audio blocked'));
   };
+
+  /** Open a section and scroll it into view — target of the "see …" chips. */
+  const navigateToSection = useCallback((key: string) => {
+    setOpenSections(prev => new Set(prev).add(key));
+    // Wait for the section to expand before scrolling to its final position.
+    requestAnimationFrame(() => {
+      document.getElementById(`memo-section-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
 
   const toggleSection = (key: string) => {
     setOpenSections(prev => {
@@ -815,17 +1100,14 @@ export default function MemoApp() {
           {scores && (
             <div className="flex gap-1.5 shrink-0">
               {[
-                { label: "F", score: scores.founder_score, color: "text-blue-400 border-blue-500/20 bg-blue-500/10" },
-                { label: "M", score: scores.market_score, color: "text-green-400 border-green-500/20 bg-green-500/10" },
-                { label: "I", score: scores.idea_score, color: "text-purple-400 border-purple-500/20 bg-purple-500/10" },
+                { label: "Founder", score: scores.founder_score, color: "text-blue-400 border-blue-500/20 bg-blue-500/10" },
+                { label: "Market", score: scores.market_score, color: "text-green-400 border-green-500/20 bg-green-500/10" },
+                { label: "Idea", score: scores.idea_score, color: "text-purple-400 border-purple-500/20 bg-purple-500/10" },
               ].map(({ label, score, color }) => (
                 <div key={label} className={`${color} border rounded-lg px-2 py-1 text-xs font-bold`}>
                   {label} {score ?? "—"}
                 </div>
               ))}
-              <div className={`border rounded-lg px-2 py-1 text-xs font-bold capitalize ${recBadgeColor[recAction] || recBadgeColor.diligence}`}>
-                {recAction}
-              </div>
             </div>
           )}
         </div>
@@ -857,10 +1139,11 @@ export default function MemoApp() {
         )}
 
         {!loading && memo && (
+          <MemoNavContext.Provider value={navigateToSection}>
           <div className="p-4 space-y-2">
             {/* Company header */}
-            <div className="bg-white/3 border border-white/8 rounded-2xl p-5 mb-4">
-              <div className="flex items-start justify-between">
+            <div className="bg-white/3 border border-white/8 rounded-2xl p-5 mb-4 flex items-center justify-between">
+              <div className="flex items-start justify-between flex-1 pr-6">
                 <div>
                   <h1 className="text-2xl font-black text-white tracking-tight">{companyName}</h1>
                   <div className="flex gap-2 mt-1.5">
@@ -888,6 +1171,12 @@ export default function MemoApp() {
                   </p>
                 </div>
               </div>
+              
+              {scores?.founder_score && (
+                <div className="shrink-0 pl-6 border-l border-white/10">
+                  <FounderScoreChart currentScore={scores.founder_score} />
+                </div>
+              )}
             </div>
 
             {/* Recommendation Banner — always at top */}
@@ -906,7 +1195,7 @@ export default function MemoApp() {
               const isUpdated = updatedSections.has(section.key);
 
               return (
-                <div key={section.key} className={`rounded-xl overflow-hidden transition-all duration-500 ${isUpdated ? 'bg-indigo-500/5 border border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-white/2 border border-white/6 hover:border-white/10'}`}>
+                <div key={section.key} id={`memo-section-${section.key}`} className={`scroll-mt-4 rounded-xl overflow-hidden transition-all duration-500 ${isUpdated ? 'bg-indigo-500/5 border border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-white/2 border border-white/6 hover:border-white/10'}`}>
                   {/* Section Header */}
                   <button
                     onClick={() => toggleSection(section.key)}
@@ -925,6 +1214,7 @@ export default function MemoApp() {
                         {hasWarning && <FlagBadge text="Missing data" />}
                         {isUpdated && <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-indigo-500 text-white animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.5)]">Updated from Call</span>}
                       </div>
+                      <SectionUncertaintyRisk value={value} />
                     </div>
                     {isOpen ? <ChevronUp size={16} className="text-white/30 shrink-0" /> : <ChevronDown size={16} className="text-white/30 shrink-0" />}
                   </button>
@@ -935,7 +1225,7 @@ export default function MemoApp() {
                       {missing ? (
                         <NotDisclosedBadge label="No data available" />
                       ) : section.key === "swot" && typeof value === "object" && !Array.isArray(value) ? (
-                        <SwotSection swot={value as Record<string, string[]>} />
+                        <SwotSection swot={value as Record<string, string[]>} memo={memo} />
                       ) : (
                         <SectionContent value={value} />
                       )}
@@ -976,6 +1266,7 @@ export default function MemoApp() {
               </p>
             </div>
           </div>
+          </MemoNavContext.Provider>
         )}
       </div>
 

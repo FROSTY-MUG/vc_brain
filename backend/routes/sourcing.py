@@ -70,8 +70,8 @@ _bg = threading.Thread(target=_background_scan_loop, daemon=True)
 _bg.start()
 
 @router.get("/outbound/signals")
-async def get_outbound_signals():
-    """Get discovered outbound signals — seeds + live DB data."""
+async def get_outbound_signals(q: str = Query(None)):
+    """Get discovered outbound signals — seeds + live DB data, optionally with natural language filtering."""
     try:
         db_signals = db.get_all_outbound_signals()
         # Merge seeds with DB signals, deduplicate by id/url
@@ -80,6 +80,41 @@ async def get_outbound_signals():
         for seed in SEED_SIGNALS:
             if seed["url"] not in existing_urls:
                 merged.append(seed)
+                
+        if q and q.strip():
+            # Natural language filtering via LLM
+            import json
+            from utils.llm import get_llm_client, get_model_name
+            client = get_llm_client()
+            
+            # Prepare minimal representation of signals for the LLM context
+            signal_json = []
+            for s in merged:
+                signal_json.append({"id": s.get("id"), "title": s.get("title"), "description": s.get("description", "")})
+                
+            prompt = f"""You are an AI VC Sourcing Assistant.
+The user is searching for: "{q.strip()}"
+
+Here are the available sourcing signals:
+{json.dumps(signal_json, indent=2)}
+
+Return ONLY a JSON object with a single key "matched_ids" containing a list of string IDs that semantically match the user's intent. Do not include signals that are completely irrelevant to the search query. If the user searches for a specific technology (e.g. AI), include signals related to that technology.
+"""
+            try:
+                resp = client.chat.completions.create(
+                    model=get_model_name("gpt-4o-mini"),
+                    messages=[{"role": "system", "content": prompt}],
+                    response_format={"type": "json_object"}
+                )
+                data = json.loads(resp.choices[0].message.content)
+                matched_ids = set(data.get("matched_ids", []))
+                merged = [s for s in merged if s.get("id") in matched_ids]
+            except Exception as e:
+                print(f"LLM filtering error: {e}")
+                # Fallback to simple text search
+                query_lower = q.lower()
+                merged = [s for s in merged if query_lower in s.get("title", "").lower() or query_lower in s.get("description", "").lower()]
+
         return {"signals": merged, "total": len(merged)}
     except Exception as e:
         return {"signals": SEED_SIGNALS, "total": len(SEED_SIGNALS)}
