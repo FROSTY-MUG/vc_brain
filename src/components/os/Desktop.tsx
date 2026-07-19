@@ -13,29 +13,46 @@ import { InvestorDesktop } from "./InvestorDesktop";
 
 export const Desktop = () => {
   const { openApp } = useOSStore();
-  const { data: session } = useSession();
   const [onboarded, setOnboarded] = useState<boolean>(false);
   const [userRole, setUserRole] = useState<string>("investor");
   const [loading, setLoading] = useState<boolean>(true);
 
+  const { data: session, status } = useSession();
+
   useEffect(() => {
-    if (session?.user?.email) {
-      fetch(`/api/profile/${session.user.email}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && data.onboarded) {
-            setOnboarded(true);
-            setUserRole(data.role);
-          } else {
-            setOnboarded(false);
-          }
-          setLoading(false);
-        })
-        .catch(() => {
-          setLoading(false);
-        });
+    // If auth is still loading, wait for it
+    if (status === "loading") return;
+
+    // If no session at all, stop loading immediately
+    if (!session?.user?.email) {
+      setLoading(false);
+      return;
     }
-  }, [session]);
+
+    // Set a hard timeout so we never get permanently stuck
+    const timeout = setTimeout(() => setLoading(false), 5000);
+
+    fetch(`/api/profile/${session.user.email}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.onboarded) {
+          setOnboarded(true);
+          setUserRole(data.role);
+        } else {
+          setOnboarded(false);
+        }
+      })
+      .catch(() => {
+        setOnboarded(false);
+      })
+      .finally(() => {
+        clearTimeout(timeout);
+        setLoading(false);
+      });
+
+    return () => clearTimeout(timeout);
+  }, [session, status]);
+
 
   const handleOnboardingComplete = (role: string) => {
     setOnboarded(true);

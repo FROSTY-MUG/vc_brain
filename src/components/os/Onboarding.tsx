@@ -40,7 +40,7 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
     if (!role || !session?.user?.email) return;
     setSubmitting(true);
     try {
-      // 1. Create User Profile
+      // 1. Create User Profile — fire and don't block on failure
       const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -50,7 +50,7 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
           avatar_url: session.user.image || "",
           role: role
         })
-      });
+      }).catch(() => null); // swallow network errors (Railway cold start)
 
       // 2. Save Thesis (if investor) or Startup (if founder)
       if (role === "investor") {
@@ -66,19 +66,20 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
             ownershipTarget: parseFloat(ownership) || 0,
             riskAppetite: risk,
           })
-        });
-      } else {
-        // save startup info (we'll implement this endpoint next if it doesn't exist)
+        }).catch(() => null);
       }
 
-      if (res.ok) {
-        onComplete(role);
-      }
+      // Always proceed — even if backend is cold/slow, let user in
+      onComplete(role);
     } catch (err) {
       console.error(err);
+      // Still complete onboarding even on error
+      onComplete(role);
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
+
 
   const toggleSector = (s: string) => setSelectedSectors(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   const toggleStage = (s: string) => setSelectedStages(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
