@@ -50,7 +50,7 @@ export const WindowComponent: React.FC<WindowProps> = ({ windowState, children }
     >
       {/* Title Bar */}
       <div
-        className="window-header h-10 border-b border-white/10 flex items-center justify-between px-4 cursor-grab active:cursor-grabbing bg-white/5"
+        className="window-header h-10 border-b border-[#262626] flex items-center justify-between px-4 cursor-grab active:cursor-grabbing bg-[#121212]"
         onDoubleClick={() => maximizeApp(windowState.id)}
       >
         <div className="text-sm font-semibold tracking-wide text-white/90">
@@ -62,7 +62,7 @@ export const WindowComponent: React.FC<WindowProps> = ({ windowState, children }
               e.stopPropagation();
               minimizeApp(windowState.id);
             }}
-            className="p-1 hover:bg-white/10 rounded-md transition-colors text-white/70 hover:text-white"
+            className="p-1 hover:bg-[#262626] rounded-md transition-colors text-white/70 hover:text-white"
           >
             <Minus size={14} />
           </button>
@@ -71,7 +71,7 @@ export const WindowComponent: React.FC<WindowProps> = ({ windowState, children }
               e.stopPropagation();
               maximizeApp(windowState.id);
             }}
-            className="p-1 hover:bg-white/10 rounded-md transition-colors text-white/70 hover:text-white"
+            className="p-1 hover:bg-[#262626] rounded-md transition-colors text-white/70 hover:text-white"
           >
             <Square size={12} />
           </button>
@@ -80,7 +80,7 @@ export const WindowComponent: React.FC<WindowProps> = ({ windowState, children }
               e.stopPropagation();
               closeApp(windowState.id);
             }}
-            className="p-1 hover:bg-red-500/80 rounded-md transition-colors text-white/70 hover:text-white"
+            className="p-1 hover:bg-red-500 rounded-md transition-colors text-white/70 hover:text-white"
           >
             <X size={14} />
           </button>
@@ -88,7 +88,7 @@ export const WindowComponent: React.FC<WindowProps> = ({ windowState, children }
       </div>
       
       {/* Content */}
-      <div className="flex-1 overflow-auto bg-black/40">
+      <div className="flex-1 overflow-y-auto bg-[#0a0a0a] w-full h-full">
         {children}
       </div>
     </Rnd>

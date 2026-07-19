@@ -8,11 +8,11 @@
 }
 
 :root {
-  --background: #000000;
+  --background: #080808;
   --foreground: #fcfcfc;
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-bg: rgba(20, 20, 20, 0.6);
-  --glass-highlight: rgba(251, 191, 36, 0.15); /* Gold tint */
+  --glass-border: #262626; /* minimal solid border */
+  --glass-bg: #121212; /* solid dark gray */
+  --glass-highlight: transparent;
 }
 
 body {
@@ -22,29 +22,23 @@ body {
   margin: 0;
   padding: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  /* Beautiful dark mesh gradient or radial gradient for desktop */
-  background: radial-gradient(circle at top right, #2a2a2a, #000000), radial-gradient(circle at bottom left, #1a1a00, #000000);
 }
 
 .glass-panel {
   background: var(--glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37), inset 0 0 0 1px var(--glass-highlight);
+  box-shadow: none;
 }
 
 .glass-button {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(8px);
+  background: #171717;
   border: 1px solid var(--glass-border);
   transition: all 0.2s ease;
 }
 
 .glass-button:hover {
-  background: rgba(251, 191, 36, 0.2); /* Gold hover */
-  border-color: rgba(251, 191, 36, 0.5);
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.2);
+  background: #222222;
+  border-color: #404040;
 }
 
 .text-gold-gradient {

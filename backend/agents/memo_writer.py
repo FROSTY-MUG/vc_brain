@@ -23,7 +23,7 @@ You have access to:
 Requirement 1 (Agentic Traceability): EVERY factual claim in the memo MUST cite its source inline. 
 Example: "The team has 3 years of AI experience [Source: LinkedIn - John Doe] and $1M ARR [Source: Deck - Traction Slide]."
 
-Requirement 2: If cap table or financials are missing, explicitly state "Cap table: not disclosed" rather than omitting or making it up.
+Requirement 2: Do NOT fabricate data. If any information is missing, unavailable, or intentionally left out (particularly Financials & round structure, Cap table, or Customer references), it MUST be explicitly flagged in the memo (e.g., "Cap table: not disclosed" or "Customer references: unavailable at this stage") rather than silently omitted or guessed. A memo that clearly marks its own gaps is more trustworthy.
 
 Sections required in JSON:
 - "company_snapshot": One paragraph "in a nutshell".
