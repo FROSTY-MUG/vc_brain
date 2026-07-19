@@ -18,9 +18,19 @@ def generate_memo_on_demand(app_id: str):
     claims = db.get_claims_for_app(app_id)
     startup = app.get("startups", {}) or {}
 
+    import json
+    
+    source_detail_str = app.get("source_detail")
+    research_data = {}
+    if source_detail_str:
+        try:
+            research_data = json.loads(source_detail_str) if isinstance(source_detail_str, str) else source_detail_str
+        except Exception:
+            pass
+
     memo = generate_memo(
         extraction={"company_name": startup.get("name"), "startup_info": startup, "claims": claims},
-        research={},
+        research=research_data,
         validation=claims,
         screening=scores
     )

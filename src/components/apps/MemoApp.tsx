@@ -41,7 +41,7 @@ const SECTIONS: MemoSection[] = [
   { key: "company_snapshot", label: "Company Snapshot", icon: Building2, color: "text-amber-400", required: true },
   { key: "investment_hypotheses", label: "Investment Hypotheses", icon: Lightbulb, color: "text-yellow-400", required: true },
   { key: "swot", label: "SWOT Analysis", icon: BarChart3, color: "text-green-400", required: true },
-  { key: "team_and_history", label: "Team & History", icon: Users, color: "text-blue-400", required: true },
+  { key: "team_and_history", label: "Team & History", icon: Users, color: "text-blue-400", required: false },
   { key: "problem_and_product", label: "Problem & Product", icon: Rocket, color: "text-purple-400", required: true },
   { key: "technology_and_defensibility", label: "Technology & Defensibility", icon: Cpu, color: "text-cyan-400", required: false },
   { key: "market_sizing", label: "Market Sizing", icon: Globe, color: "text-indigo-400", required: false },
@@ -326,7 +326,7 @@ export default function MemoApp() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#08090c] text-white overflow-hidden">
+    <div className="absolute inset-0 flex flex-col bg-[#08090c] text-white overflow-hidden">
       {/* ── Header ── */}
       <div className="p-5 border-b border-white/5 shrink-0">
         <div className="flex items-center justify-between mb-4">
@@ -399,7 +399,7 @@ export default function MemoApp() {
       </div>
 
       {/* ── Body ── */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
         {loading && (
           <div className="flex items-center justify-center h-40 gap-2 text-white/40">
             <Loader2 className="animate-spin" size={20} />

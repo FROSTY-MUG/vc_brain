@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Bot, Activity, CheckCircle2, XCircle, Loader2, RefreshCw, Zap, Brain, Search, FileText, Shield, Database } from "lucide-react";
+import Scroller from "@/components/Scroller";
 
 interface AgentLog {
   id: string;
@@ -30,31 +31,44 @@ const INITIAL_LOGS: AgentLog[] = [
 ];
 
 export default function AgentHubApp() {
-  const [logs, setLogs] = useState<AgentLog[]>(INITIAL_LOGS);
+  const [logs, setLogs] = useState<AgentLog[]>([]);
   const [runningAgents, setRunningAgents] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"agents" | "logs">("agents");
 
-  // Simulate live log updates
+  const fetchRealLogs = async () => {
+    try {
+      const res = await fetch("http://localhost:8000/api/applications/");
+      if (res.ok) {
+        const apps = await res.json();
+        let allLogs: AgentLog[] = [];
+        for (const app of apps) {
+          if (app.cot_log) {
+            try {
+              const parsed = typeof app.cot_log === "string" ? JSON.parse(app.cot_log) : app.cot_log;
+              parsed.forEach((l: any, i: number) => {
+                allLogs.push({
+                  id: `${app.id}-${i}`,
+                  timestamp: new Date(l.ts).toLocaleTimeString(),
+                  agent: l.agent,
+                  action: l.action,
+                  status: l.status === "failed" ? "failed" : "success",
+                  detail: l.detail,
+                });
+              });
+            } catch (e) {}
+          }
+        }
+        allLogs.sort((a, b) => new Date(`1970/01/01 ${b.timestamp}`).getTime() - new Date(`1970/01/01 ${a.timestamp}`).getTime());
+        setLogs(allLogs.slice(0, 100));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
-    const actions = [
-      { agent: "Sourcing Agent", action: "Scanning GitHub trending repositories for AI founders" },
-      { agent: "Screening Agent", action: "Re-scoring 5 applications against updated thesis" },
-      { agent: "Memory Layer", action: "Syncing founder index from Supabase" },
-      { agent: "Diligence Agent", action: "Validating LinkedIn claims for new submission" },
-      { agent: "Memo Agent", action: "Queuing memo generation for 2 pending applications" },
-    ];
-    const interval = setInterval(() => {
-      const pick = actions[Math.floor(Math.random() * actions.length)];
-      const newLog: AgentLog = {
-        id: Date.now().toString(),
-        timestamp: new Date().toLocaleTimeString(),
-        agent: pick.agent,
-        action: pick.action,
-        status: Math.random() > 0.1 ? "success" : "running",
-        duration: `${(Math.random() * 5).toFixed(1)}s`,
-      };
-      setLogs(prev => [newLog, ...prev].slice(0, 50));
-    }, 5000);
+    fetchRealLogs();
+    const interval = setInterval(fetchRealLogs, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -100,7 +114,7 @@ export default function AgentHubApp() {
   const runningCount = logs.filter(l => l.status === "running").length;
 
   return (
-    <div className="h-full flex flex-col bg-[#08090c] text-white overflow-hidden">
+    <div className="absolute inset-0 flex flex-col bg-[#08090c] text-white overflow-hidden">
       {/* Header */}
       <div className="p-5 border-b border-white/5 shrink-0">
         <div className="flex items-center justify-between mb-4">
@@ -141,7 +155,7 @@ export default function AgentHubApp() {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <Scroller className="flex-1 min-h-0 p-4">
         {activeTab === "agents" && (
           <div className="space-y-3">
             {AGENT_CONFIGS.map(agent => {
@@ -171,26 +185,39 @@ export default function AgentHubApp() {
 
         {activeTab === "logs" && (
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2 mb-3 text-xs text-white/30">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              Live activity feed — updates every 5s
+            <div className="flex items-center justify-between mb-3">
+               <div className="flex items-center gap-2 text-xs text-white/30">
+                 <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                 Live Agentic Traceability Feed (Chain of Thought)
+               </div>
             </div>
+            {logs.length === 0 && (
+              <div className="text-center text-xs text-white/40 py-10 border border-dashed border-white/10 rounded-xl">
+                No pipeline traces found. Upload a pitch deck to trigger the AI agents.
+              </div>
+            )}
             {logs.map(log => (
-              <div key={log.id} className="flex items-start gap-3 p-3 bg-white/3 hover:bg-white/5 rounded-lg transition-colors border border-white/5">
-                {getStatusIcon(log.status)}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-semibold text-white/70">{log.agent}</span>
-                    {log.duration && <span className="text-xs text-white/20">{log.duration}</span>}
-                    <span className="ml-auto text-xs text-white/20 shrink-0">{log.timestamp}</span>
+              <div key={log.id} className="flex flex-col gap-2 p-3 bg-white/3 hover:bg-white/5 rounded-lg transition-colors border border-white/5">
+                <div className="flex items-start gap-3">
+                  {getStatusIcon(log.status)}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-white/70">{log.agent}</span>
+                      <span className="ml-auto text-xs text-white/20 shrink-0">{log.timestamp}</span>
+                    </div>
+                    <p className="text-xs text-white/50 mt-0.5">{log.action}</p>
                   </div>
-                  <p className="text-xs text-white/50 mt-0.5">{log.action}</p>
                 </div>
+                {log.detail && (
+                  <div className="ml-7 p-2 rounded bg-black/20 border border-white/5 text-[10px] text-white/40 font-mono overflow-x-auto whitespace-pre-wrap">
+                    {log.detail}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Scroller>
     </div>
   );
 }

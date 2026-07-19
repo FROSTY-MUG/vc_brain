@@ -77,7 +77,7 @@ export default function StartupCollabApp() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#08090c] text-white overflow-hidden">
+    <div className="absolute inset-0 flex flex-col bg-[#08090c] text-white overflow-hidden">
       {/* Header */}
       <div className="p-5 border-b border-white/5 shrink-0">
         <div className="flex items-center justify-between mb-3">
@@ -118,7 +118,7 @@ export default function StartupCollabApp() {
 
       {/* Post Form */}
       {view === "post" && (
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-5 space-y-4">
           <h3 className="font-semibold text-white/80">Post a Collaboration Request</h3>
           <div>
             <label className="text-xs text-white/40 mb-1.5 block">What are you looking for?</label>
@@ -154,7 +154,7 @@ export default function StartupCollabApp() {
 
       {/* Browse Posts */}
       {view === "browse" && (
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 space-y-3">
           <p className="text-xs text-white/30">{filtered.length} collaboration opportunities</p>
           {filtered.map(post => (
             <div key={post.id} className="bg-[#0d0d10] border border-white/5 rounded-xl p-4 hover:border-white/10 transition-all">

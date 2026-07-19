@@ -111,6 +111,10 @@ class MemoResponse(BaseModel):
     technology_and_defensibility: MemoSection
     market_sizing: MemoSection
     competition: MemoSection
+    financials_and_round: MemoSection
+    cap_table: MemoSection
+    due_diligence_log: MemoSection
+    exit_perspective: MemoSection
     trust_summary: TrustSummary
     recommendation: MemoRecommendation
     open_questions: list[str]

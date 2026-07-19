@@ -61,7 +61,7 @@ export default function InvestorSearchApp() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#08090c] text-white overflow-hidden">
+    <div className="absolute inset-0 flex flex-col bg-[#08090c] text-white overflow-hidden">
       {/* Header */}
       <div className="p-5 border-b border-white/5 shrink-0">
         <h2 className="text-xl font-bold flex items-center gap-2 mb-3">
@@ -129,7 +129,7 @@ export default function InvestorSearchApp() {
       </div>
 
       {/* Results */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 space-y-3">
         <p className="text-xs text-white/30 mb-2">{filtered.length} investors found</p>
         {filtered.map(inv => (
           <div key={inv.id} className="bg-[#0d0d10] border border-white/5 rounded-xl p-4 hover:border-white/10 transition-all">

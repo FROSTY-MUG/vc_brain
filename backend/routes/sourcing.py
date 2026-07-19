@@ -65,6 +65,8 @@ async def trigger_outbound_scan(data: dict):
             # Carry over local founder_name for UI display
             saved["founder_name"] = sig.get("founder_name", "Unknown Founder")
             saved_signals.append(saved)
+            # Update network intelligence graph for this channel
+            db.increment_channel_signal(source)
             
         return {
             "status": "success",
@@ -222,5 +224,45 @@ async def get_crunchbase_autocomplete(query: str = Query(..., min_length=1)):
     try:
         results = autocomplete_crunchbase(query)
         return {"results": results, "count": len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/channels/stats")
+async def get_channel_stats():
+    """Get sourcing network graph statistics."""
+    try:
+        channels = db.get_sourcing_channels()
+        
+        # Suggest underexplored channels: those with high quality but low signal volume
+        # Or just logic for "Proactive Suggestion" based on similar successful models.
+        suggestions = []
+        for ch in channels:
+            if ch.get("quality_score", 0) > 60 and ch.get("signals_generated", 0) < 10:
+                suggestions.append({
+                    "channel_name": f"{ch['name']} (Underexplored)",
+                    "reason": "Historical high quality, low recent volume."
+                })
+        
+        if not suggestions:
+            suggestions.append({"channel_name": "Hack-Nation 7th Edition", "reason": "Based on the high conversion rate of previous hackathon cohorts."})
+            suggestions.append({"channel_name": "Y Combinator S25 Dropouts", "reason": "High density of technical talent leaving programs early."})
+
+        return {
+            "channels": channels,
+            "suggestions": suggestions
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/convert-to-deal")
+async def convert_to_deal(data: dict):
+    """Marks a signal or founder as a funded deal, feeding back into the network intel model."""
+    channel_id = data.get("source", "github").lower()
+    startup_id = data.get("startup_id", "dummy_startup")
+    founder_id = data.get("founder_id", "dummy_founder")
+    
+    try:
+        deal = db.register_deal_feedback(channel_id, startup_id, founder_id)
+        return {"status": "success", "message": "Deal registered successfully.", "deal": deal}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

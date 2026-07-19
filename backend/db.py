@@ -29,7 +29,14 @@ _in_memory_db = {
     "outbound_signals": [],
     "outreach_events": [],
     "users": [],
-    "founder_scores": []
+    "founder_scores": [],
+    "sourcing_channels": [
+        {"id": "github", "name": "GitHub Trending", "type": "code", "signals_generated": 0, "deals_funded": 0, "quality_score": 50, "active": True},
+        {"id": "producthunt", "name": "ProductHunt Launches", "type": "launch", "signals_generated": 0, "deals_funded": 0, "quality_score": 50, "active": True},
+        {"id": "devpost", "name": "Devpost Hackathons", "type": "hackathon", "signals_generated": 0, "deals_funded": 0, "quality_score": 50, "active": True},
+        {"id": "arxiv", "name": "arXiv Papers", "type": "research", "signals_generated": 0, "deals_funded": 0, "quality_score": 50, "active": True}
+    ],
+    "deals": []
 }
 
 
@@ -638,3 +645,71 @@ def get_all_outbound_signals() -> list:
     sb = get_supabase()
     result = sb.table("outbound_signals").select("*").order("discovered_at", desc=True).execute()
     return result.data or []
+
+# ── Sourcing Network Intelligence ──
+
+def get_sourcing_channels() -> list:
+    if _use_in_memory:
+        return _in_memory_db["sourcing_channels"]
+    sb = get_supabase()
+    try:
+        result = sb.table("sourcing_channels").select("*").execute()
+        return result.data or []
+    except Exception:
+        # Fallback if table doesn't exist in user's Supabase yet
+        return _in_memory_db["sourcing_channels"]
+
+def increment_channel_signal(channel_id: str):
+    if _use_in_memory:
+        for ch in _in_memory_db["sourcing_channels"]:
+            if ch["id"] == channel_id:
+                ch["signals_generated"] += 1
+                return
+    else:
+        try:
+            sb = get_supabase()
+            # Fetch current
+            res = sb.table("sourcing_channels").select("signals_generated").eq("id", channel_id).execute()
+            if res.data:
+                curr = res.data[0].get("signals_generated", 0)
+                sb.table("sourcing_channels").update({"signals_generated": curr + 1}).eq("id", channel_id).execute()
+        except Exception:
+            pass
+
+def register_deal_feedback(channel_id: str, startup_id: str, founder_id: str = None) -> dict:
+    if _use_in_memory:
+        deal = {
+            "id": str(uuid.uuid4()),
+            "channel_id": channel_id,
+            "startup_id": startup_id,
+            "founder_id": founder_id,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        _in_memory_db["deals"].append(deal)
+        for ch in _in_memory_db["sourcing_channels"]:
+            if ch["id"] == channel_id:
+                ch["deals_funded"] += 1
+                # Recalculate quality score: base 50, +20 per deal, -1 per empty signal
+                ch["quality_score"] = min(100, max(0, 50 + (ch["deals_funded"] * 20) - (ch["signals_generated"] * 1)))
+        return deal
+    else:
+        try:
+            sb = get_supabase()
+            deal = {
+                "channel_id": channel_id,
+                "startup_id": startup_id,
+                "founder_id": founder_id
+            }
+            res = sb.table("deals").insert(deal).execute()
+            
+            # Update channel stats
+            ch_res = sb.table("sourcing_channels").select("deals_funded", "signals_generated").eq("id", channel_id).execute()
+            if ch_res.data:
+                ch_data = ch_res.data[0]
+                deals = ch_data.get("deals_funded", 0) + 1
+                sigs = ch_data.get("signals_generated", 0)
+                quality = min(100, max(0, 50 + (deals * 20) - (sigs * 1)))
+                sb.table("sourcing_channels").update({"deals_funded": deals, "quality_score": quality}).eq("id", channel_id).execute()
+            return res.data[0] if res.data else deal
+        except Exception:
+            return {}
