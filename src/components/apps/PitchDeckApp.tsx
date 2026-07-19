@@ -1,15 +1,44 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FileText, Search, Upload, ChevronRight, X, Building2,
   DollarSign, TrendingUp, Tag, Globe, Clock, Plus, CheckCircle2,
-  LayoutGrid, List, Filter, Presentation
+  LayoutGrid, List, Filter, Presentation, Loader2
 } from "lucide-react";
-import {
-  DEMO_PITCH_DECKS,
-  DEMO_FOUNDERS,
-  PitchDeck,
-} from "@/data/demoData";
+import { PitchDeck } from "@/data/demoData";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+// ── Defined OUTSIDE the parent component so React never remounts it on re-render ──
+const Field = ({
+  label, field, placeholder, type = "text", form, errors, setForm, setErrors,
+}: {
+  label: string;
+  field: string;
+  placeholder?: string;
+  type?: string;
+  form: Record<string, string>;
+  errors: Record<string, string | undefined>;
+  setForm: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  setErrors: React.Dispatch<React.SetStateAction<Record<string, string | undefined>>>;
+}) => (
+  <div>
+    <label className="block text-xs text-white/50 mb-1.5">{label}</label>
+    <input
+      type={type}
+      value={form[field] ?? ""}
+      onChange={(e) => {
+        setForm((p) => ({ ...p, [field]: e.target.value }));
+        setErrors((p) => ({ ...p, [field]: undefined }));
+      }}
+      placeholder={placeholder}
+      className={`w-full bg-white/5 border rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-500/50 placeholder:text-white/20 transition-colors ${
+        errors[field] ? "border-red-500/50" : "border-white/10"
+      }`}
+    />
+    {errors[field] && <p className="text-xs text-red-400 mt-1">{errors[field]}</p>}
+  </div>
+);
 
 const SECTORS = ["AI Infrastructure", "Climate Tech", "Fintech", "HealthTech", "Developer Tools", "EdTech", "Web3", "Cybersecurity"];
 const STAGES = ["Pre-Seed", "Seed", "Series A"];
@@ -63,7 +92,8 @@ const EMPTY_FORM: SubmitForm = {
 
 export default function PitchDeckApp() {
   const [tab, setTab] = useState<"browse" | "submit">("browse");
-  const [decks, setDecks] = useState<PitchDeck[]>(DEMO_PITCH_DECKS);
+  const [decks, setDecks] = useState<PitchDeck[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<PitchDeck | null>(null);
   const [query, setQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState("");
@@ -72,6 +102,49 @@ export default function PitchDeckApp() {
   const [form, setForm] = useState<SubmitForm>(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Partial<SubmitForm>>({});
+
+  // Factory that creates a Field bound to this component's state — avoids
+  // defining Field inside the render body (which would cause React to remount
+  // the input on every render, making it impossible to type into).
+  const F = React.useCallback(
+    (props: { label: string; field: keyof SubmitForm; placeholder?: string; type?: string }) => (
+      <Field
+        {...props}
+        form={form as Record<string, string>}
+        errors={errors as Record<string, string | undefined>}
+        setForm={setForm as React.Dispatch<React.SetStateAction<Record<string, string>>>}
+        setErrors={setErrors as React.Dispatch<React.SetStateAction<Record<string, string | undefined>>>}
+      />
+    ),
+    [form, errors, setForm, setErrors]
+  );
+
+  // Fetch real applications from backend on mount
+  useEffect(() => {
+    fetch(`${API}/api/applications/`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: PitchDeck[] = data.map((a: { id: string; startups?: { name?: string; sector?: string; stage?: string; website?: string }; raw_text?: string; deck_url?: string; submitted_at?: string; founder_name?: string }) => ({
+            id: a.id,
+            founderId: a.id,
+            founderName: a.founder_name || "Unknown Founder",
+            company: a.startups?.name || "Unknown Company",
+            tagline: (a.raw_text || "").slice(0, 100),
+            sector: a.startups?.sector || "Unknown",
+            stage: a.startups?.stage || "Unknown",
+            raising: 0,
+            description: a.raw_text || "",
+            traction: "",
+            deckUrl: a.deck_url,
+            submittedAt: a.submitted_at || new Date().toISOString(),
+          }));
+          setDecks(mapped);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = decks.filter((d) => {
     const q = query.toLowerCase();
@@ -116,21 +189,6 @@ export default function PitchDeckApp() {
     setTimeout(() => setSubmitted(false), 3000);
   };
 
-  const Field = ({ label, field, placeholder, type = "text" }: {
-    label: string; field: keyof SubmitForm; placeholder?: string; type?: string;
-  }) => (
-    <div>
-      <label className="block text-xs text-white/50 mb-1.5">{label}</label>
-      <input
-        type={type}
-        value={form[field]}
-        onChange={(e) => { setForm((p) => ({ ...p, [field]: e.target.value })); setErrors((p) => ({ ...p, [field]: undefined })); }}
-        placeholder={placeholder}
-        className={`w-full bg-white/5 border rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-500/50 placeholder:text-white/20 transition-colors ${errors[field] ? "border-red-500/50" : "border-white/10"}`}
-      />
-      {errors[field] && <p className="text-xs text-red-400 mt-1">{errors[field]}</p>}
-    </div>
-  );
 
   return (
     <div className="absolute inset-0 flex flex-col bg-[#08090c] text-white overflow-hidden">
@@ -204,10 +262,15 @@ export default function PitchDeckApp() {
       {/* BROWSE TAB */}
       {tab === "browse" && (
         <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-white/30">
+              <Loader2 size={28} className="animate-spin" />
+              <p className="text-sm">Loading pitch decks…</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-white/30">
               <FileText size={40} />
-              <p className="text-sm">No pitch decks match your search</p>
+              <p className="text-sm">{query || sectorFilter || stageFilter ? "No pitch decks match your search" : "No pitch decks yet — submit the first one!"}</p>
             </div>
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-2 gap-3">
@@ -300,11 +363,11 @@ export default function PitchDeckApp() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Company Name *" field="company" placeholder="e.g. NeuralFlow" />
-                <Field label="Your Name *" field="founderName" placeholder="e.g. Arjun Sharma" />
+                <F label="Company Name *" field="company" placeholder="e.g. NeuralFlow" />
+                <F label="Your Name *" field="founderName" placeholder="e.g. Arjun Sharma" />
               </div>
 
-              <Field label="One-line Tagline *" field="tagline" placeholder="e.g. AI inference 10x cheaper on edge devices" />
+              <F label="One-line Tagline *" field="tagline" placeholder="e.g. AI inference 10x cheaper on edge devices" />
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -348,7 +411,7 @@ export default function PitchDeckApp() {
                   </div>
                   {errors.raising && <p className="text-xs text-red-400 mt-1">{errors.raising}</p>}
                 </div>
-                <Field label="Equity Offered" field="equity" placeholder="e.g. 8%" />
+                <F label="Equity Offered" field="equity" placeholder="e.g. 8%" />
               </div>
 
               <div>
@@ -374,7 +437,7 @@ export default function PitchDeckApp() {
                 />
               </div>
 
-              <Field label="Deck Link (Google Slides, Notion, etc.)" field="deckUrl" placeholder="https://..." />
+              <F label="Deck Link (Google Slides, Notion, etc.)" field="deckUrl" placeholder="https://..." />
 
               <button
                 onClick={handleSubmit}

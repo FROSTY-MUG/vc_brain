@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { DEMO_KPI_CARDS, DEMO_PIPELINE } from "@/data/demoData";
 import {
   TrendingUp, BarChart2, Users, DollarSign, Activity,
   RefreshCw, Loader2, ArrowUp, ArrowDown, Minus, Zap
@@ -63,8 +62,8 @@ const trendIcon = (t: string) => {
 };
 
 export default function TractionApp() {
-  const [scores, setScores] = useState(DEMO_PIPELINE);
-  const [kpis, setKpis] = useState(DEMO_KPI_CARDS);
+  const [scores, setScores] = useState<ApplicationScore[]>([]);
+  const [kpis, setKpis] = useState<KpiCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"kpis" | "pipeline">("kpis");
 

@@ -1,6 +1,10 @@
 "use client";
+<<<<<<< HEAD
 import React, { useState, useEffect, useRef } from "react";
 import { DEMO_SIGNALS } from "@/data/demoData";
+=======
+import React, { useState, useEffect } from "react";
+>>>>>>> 23319cc (fin)
 import {
   Radar, GitFork, Search, Zap, Globe, Activity, ExternalLink,
   TrendingUp, Code2, BookOpen, Trophy, RefreshCw, Loader2,
@@ -66,6 +70,7 @@ export default function SourcingApp() {
   const [now] = useState(() => Date.now());
   const [signals, setSignals] = useState<OutboundSignal[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [loadingInitial, setLoadingInitial] = useState(true);
   const [filter, setFilter] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -73,6 +78,7 @@ export default function SourcingApp() {
   const [sentOutreach, setSentOutreach] = useState<Set<string>>(new Set());
   const CACHE_KEY = "sourcing_signals_cache_v2";
 
+<<<<<<< HEAD
   // Load from localStorage immediately, then fetch from API with natural language filtering
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -114,6 +120,27 @@ export default function SourcingApp() {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
   }, [filter]);
+=======
+  // Load from localStorage cache immediately, then fetch from API
+  useEffect(() => {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try { setSignals(JSON.parse(cached)); } catch {}
+    }
+    // Try live data
+    fetch(`${API}/api/sourcing/outbound/signals`)
+      .then(r => r.json())
+      .then(data => {
+        const list = data?.signals || data;
+        if (Array.isArray(list) && list.length > 0) {
+          setSignals(list);
+          localStorage.setItem(CACHE_KEY, JSON.stringify(list));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingInitial(false));
+  }, []);
+>>>>>>> 23319cc (fin)
 
   const handleScan = async () => {
     setScanning(true);
@@ -217,7 +244,25 @@ export default function SourcingApp() {
               {isSearching && <Loader2 size={14} className="animate-spin text-emerald-400" />}
             </div>
 
+<<<<<<< HEAD
             {signals.map(signal => {
+=======
+
+            {loadingInitial ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3 text-white/30">
+                <Loader2 size={28} className="animate-spin" />
+                <p className="text-sm">Scanning for founder signals…</p>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3 text-white/30">
+                <Radar size={32} />
+                <p className="text-sm">No signals yet — click Scan Now to discover founders</p>
+              </div>
+            ) : null}
+
+            {!loadingInitial && filtered.map(signal => {
+
+>>>>>>> 23319cc (fin)
               const SrcIcon = SOURCE_ICONS[signal.source] || Globe;
               const srcColor = SOURCE_COLORS[signal.source] || SOURCE_COLORS.web;
               const isSent = sentOutreach.has(signal.id);
