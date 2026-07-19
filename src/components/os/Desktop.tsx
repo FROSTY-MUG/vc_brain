@@ -20,22 +20,35 @@ export const Desktop = () => {
   const { data: session, status } = useSession();
 
   useEffect(() => {
-    // If auth is still loading, wait for it
     if (status === "loading") return;
 
-    // If no session at all, stop loading immediately
     if (!session?.user?.email) {
       setLoading(false);
       return;
     }
 
-    // Set a hard timeout so we never get permanently stuck
-    const timeout = setTimeout(() => setLoading(false), 5000);
+    // Instant local cache check
+    const localRole = localStorage.getItem(`cognis_role_${session.user.email}`);
+    if (localRole) {
+      setOnboarded(true);
+      setUserRole(localRole);
+      setLoading(false);
+      // Still fetch in background to sync
+      fetch(`/api/profile/${session.user.email}`).catch(() => null);
+      return;
+    }
+
+    // If not cached, give it a tiny timeout (500ms) before falling back to onboarding
+    const timeout = setTimeout(() => {
+      setOnboarded(false);
+      setLoading(false);
+    }, 500);
 
     fetch(`/api/profile/${session.user.email}`)
       .then((res) => res.json())
       .then((data) => {
         if (data && data.onboarded) {
+          localStorage.setItem(`cognis_role_${session.user.email}`, data.role);
           setOnboarded(true);
           setUserRole(data.role);
         } else {
@@ -53,8 +66,10 @@ export const Desktop = () => {
     return () => clearTimeout(timeout);
   }, [session, status]);
 
-
   const handleOnboardingComplete = (role: string) => {
+    if (session?.user?.email) {
+      localStorage.setItem(`cognis_role_${session.user.email}`, role);
+    }
     setOnboarded(true);
     setUserRole(role);
   };

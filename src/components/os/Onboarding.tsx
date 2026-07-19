@@ -40,8 +40,8 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
     if (!role || !session?.user?.email) return;
     setSubmitting(true);
     try {
-      // 1. Create User Profile — fire and don't block on failure
-      const res = await fetch("/api/profile", {
+      // Fire and forget - don't block the UI!
+      fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -50,11 +50,10 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
           avatar_url: session.user.image || "",
           role: role
         })
-      }).catch(() => null); // swallow network errors (Railway cold start)
+      }).catch(() => null);
 
-      // 2. Save Thesis (if investor) or Startup (if founder)
       if (role === "investor") {
-        await fetch("/api/thesis", {
+        fetch("/api/thesis", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -69,13 +68,14 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
         }).catch(() => null);
       }
 
-      // Always proceed — even if backend is cold/slow, let user in
-      onComplete(role);
+      // Transition instantly (under 100ms)
+      setTimeout(() => {
+        onComplete(role);
+        setSubmitting(false);
+      }, 100);
     } catch (err) {
       console.error(err);
-      // Still complete onboarding even on error
       onComplete(role);
-    } finally {
       setSubmitting(false);
     }
   };
