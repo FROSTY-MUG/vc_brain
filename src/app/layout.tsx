@@ -6,8 +6,8 @@ import Providers from "@/components/Providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Conviction | The VC Brain",
-  description: "Deploying $100K Checks in 24 Hours",
+  title: "Cognis | The intelligence engine for equitable capital.",
+  description: "The intelligence engine for equitable capital.",
 };
 
 export default function RootLayout({

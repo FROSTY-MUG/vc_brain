@@ -27,7 +27,7 @@ interface ChatMessage {
   read: boolean;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 const AVATAR_COLORS = [
   "from-purple-500 to-indigo-600",
@@ -92,7 +92,7 @@ export default function MessagesApp() {
   const fetchConversations = useCallback(async () => {
     if (!currentUserEmail) return;
     try {
-      const res = await fetch(`${API}/api/messages/conversations/${encodeURIComponent(currentUserEmail)}`);
+      const res = await fetch(`${API}/py-api/messages/conversations/${encodeURIComponent(currentUserEmail)}`);
       if (res.ok) setConversations(await res.json());
     } catch {}
   }, [currentUserEmail]);
@@ -100,7 +100,7 @@ export default function MessagesApp() {
   const fetchMessages = useCallback(async (otherEmail: string) => {
     if (!currentUserEmail || !otherEmail) return;
     try {
-      const res = await fetch(`${API}/api/messages/conversation/${encodeURIComponent(currentUserEmail)}/${encodeURIComponent(otherEmail)}`);
+      const res = await fetch(`${API}/py-api/messages/conversation/${encodeURIComponent(currentUserEmail)}/${encodeURIComponent(otherEmail)}`);
       if (res.ok) {
         const data = await res.json();
         setMessages(data);
@@ -114,7 +114,7 @@ export default function MessagesApp() {
     if (view !== "compose") return;
     const search = async () => {
       try {
-        const res = await fetch(`${API}/api/profile/search/?q=${encodeURIComponent(searchQuery)}`);
+        const res = await fetch(`${API}/py-api/profile/search/?q=${encodeURIComponent(searchQuery)}`);
         if (res.ok) {
           const data = await res.json();
           setSearchResults((data || []).filter((u: UserProfile) => u.email !== currentUserEmail));
@@ -166,7 +166,7 @@ export default function MessagesApp() {
 
     setSending(true);
     try {
-      const res = await fetch(`${API}/api/messages/send`, {
+      const res = await fetch(`${API}/py-api/messages/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sender_email: currentUserEmail, recipient_email: recipient, content }),

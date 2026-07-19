@@ -25,21 +25,17 @@ export const FounderDesktop = () => {
 
   return (
     <div className="w-full h-screen overflow-hidden relative text-white bg-black select-none">
-      {/* Subtle dot texture */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.04]"
-        style={{ backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)", backgroundSize: "28px 28px" }}
-      />
+
 
       {/* Top ticker */}
       <div className="absolute top-0 left-0 right-0 h-7 bg-black border-b border-white/8 flex items-center overflow-hidden z-10">
         <div className="animate-marquee whitespace-nowrap text-white/30 text-[11px] font-mono tracking-widest flex gap-10 px-4">
-          <span>VC BRAIN SCORE &nbsp;<span className="text-blue-400">Updating…</span></span>
+          <span>COGNIS SCORE &nbsp;<span className="text-blue-400">Updating…</span></span>
           <span>PROFILE VIEWS &nbsp;<span className="text-white/50">12 investors this week</span></span>
           <span>SMART INDIA HACKATHON 2026 &nbsp;<span className="text-amber-400">LIVE</span></span>
           <span>NEW COLLAB REQUESTS &nbsp;<span className="text-white/50">3 founders online</span></span>
           <span>GITHUB COMMITS &nbsp;<span className="text-green-400">Synced</span></span>
-          <span>VC BRAIN SCORE &nbsp;<span className="text-blue-400">Updating…</span></span>
+          <span>COGNIS SCORE &nbsp;<span className="text-blue-400">Updating…</span></span>
         </div>
       </div>
 
@@ -48,7 +44,7 @@ export const FounderDesktop = () => {
         <div className="relative">
           <div className="absolute -inset-10 bg-emerald-500/10 blur-[100px] rounded-full" />
           <p className="relative text-[72px] font-black tracking-tighter bg-gradient-to-b from-emerald-300 via-emerald-500 to-green-700 bg-clip-text text-transparent opacity-40 select-none drop-shadow-[0_4px_20px_rgba(16,185,129,0.2)]">
-            VC BRAIN
+            COGNIS
           </p>
         </div>
         <p className="text-emerald-500/30 text-[10px] tracking-[0.5em] uppercase font-mono font-bold mt-2">

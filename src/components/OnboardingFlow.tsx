@@ -48,7 +48,7 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
           
           {!role ? (
             <div className="flex flex-col gap-4">
-              <p className="text-center text-white/70 mb-4">How will you use the VC Brain?</p>
+              <p className="text-center text-white/70 mb-4">How will you use Cognis?</p>
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={() => setRole("founder")}
@@ -109,7 +109,7 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
                 onClick={async () => {
                   setIsSubmitting(true);
                   try {
-                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+                    const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
                     const userEmail = session?.user?.email || "";
                     const userName = session?.user?.name || "User";
                     const userAvatar = session?.user?.image || "";
@@ -174,7 +174,7 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
                 }}
                 className="w-full py-3 bg-gold-500 text-black font-semibold rounded-lg hover:bg-gold-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
-                {isSubmitting ? "Saving..." : "Enter VC Brain"}
+                {isSubmitting ? "Saving..." : "Enter Cognis"}
               </button>
             </div>
           )}

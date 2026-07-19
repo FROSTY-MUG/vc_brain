@@ -25,13 +25,13 @@ export default function Home() {
         <div className="z-10 flex flex-col items-center glass-panel p-12 rounded-2xl max-w-md w-full text-center border border-white/10 shadow-2xl">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gold-400 to-amber-600 p-0.5 mb-6 shadow-lg shadow-gold-500/20">
             <div className="w-full h-full bg-black rounded-2xl flex items-center justify-center">
-              <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-gold-200 to-amber-500">VC</span>
+              <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-gold-200 to-amber-500">C</span>
             </div>
           </div>
           
-          <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">The VC Brain</h1>
+          <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Cognis</h1>
           <p className="text-white/60 text-sm mb-8">
-            Deploying $100K Checks in 24 Hours. Intelligent sourcing, screening, and diligence.
+            The intelligence engine for equitable capital.
           </p>
           
           <div className="flex w-full gap-3">

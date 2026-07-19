@@ -775,6 +775,201 @@ def register_deal_feedback(channel_id: str, startup_id: str, founder_id: str = N
             
             # Update channel stats
             ch_res = sb.table("sourcing_channels").select("deals_funded", "signals_generated").eq("id", channel_id).execute()
+    if _use_in_memory:
+        return _in_memory_db["outbound_signals"]
+    sb = get_supabase()
+    result = sb.table("outbound_signals").select("*").order("discovered_at", desc=True).execute()
+    return result.data or []
+
+# ── Collab Helpers ──
+def get_all_collab_posts() -> list:
+    if _use_in_memory:
+        return sorted(_in_memory_db["collab_posts"], key=lambda x: x.get("timestamp", ""), reverse=True)
+    sb = get_supabase()
+    res = sb.table("collab_posts").select("*").order("timestamp", desc=True).execute()
+    return res.data or []
+
+def insert_collab_post(post: dict) -> dict:
+    if _use_in_memory:
+        post["id"] = str(uuid.uuid4())
+        post["timestamp"] = datetime.utcnow().isoformat()
+        _in_memory_db["collab_posts"].append(post)
+        return post
+    sb = get_supabase()
+    res = sb.table("collab_posts").insert(post).execute()
+    return res.data[0] if res.data else {}
+
+# ── Investors Helpers ──
+def get_all_investors() -> list:
+    if _use_in_memory:
+        return _in_memory_db["investors"]
+    sb = get_supabase()
+    res = sb.table("investors").select("*").execute()
+    return res.data or []
+
+# ── KPIs Helpers ──
+def get_all_kpis() -> list:
+    if _use_in_memory:
+        return _in_memory_db["kpis"]
+    sb = get_supabase()
+    res = sb.table("kpis").select("*").execute()
+    return res.data or []
+
+
+# ── KPIs Helpers ──
+def get_all_kpis() -> list:
+    if _use_in_memory:
+        return _in_memory_db["kpis"]
+    sb = get_supabase()
+    res = sb.table("kpis").select("*").execute()
+    return res.data or []
+
+# ── Chat/Messages Helpers ──
+def get_all_users() -> list:
+    if _use_in_memory:
+        return _in_memory_db["users"]
+    sb = get_supabase()
+    res = sb.table("users").select("*").execute()
+    return res.data or []
+
+def get_conversations(user_email: str) -> list:
+    if _use_in_memory:
+        convos = {}
+        for m in _in_memory_db["messages"]:
+            if m.get("sender_email") == user_email or m.get("recipient_email") == user_email:
+                other = m["recipient_email"] if m["sender_email"] == user_email else m["sender_email"]
+                if other not in convos or m["sent_at"] > convos[other]["last_message_at"]:
+                    convos[other] = {
+                        "other_email": other,
+                        "last_message": m["content"],
+                        "last_message_at": m["sent_at"]
+                    }
+        return list(convos.values())
+        
+    sb = get_supabase()
+    # Simple query to get all messages for user, we will group them in memory
+    res = sb.table("messages").select("*").or_(f"sender_email.eq.{user_email},recipient_email.eq.{user_email}").order("sent_at", desc=True).execute()
+    messages = res.data or []
+    convos = {}
+    for m in messages:
+        other = m["recipient_email"] if m["sender_email"] == user_email else m["sender_email"]
+        if other not in convos:
+            convos[other] = {
+                "other_email": other,
+                "last_message": m["content"],
+                "last_message_at": m["sent_at"]
+            }
+    return list(convos.values())
+
+def get_conversation_messages(user1_email: str, user2_email: str) -> list:
+    if _use_in_memory:
+        msgs = [m for m in _in_memory_db["messages"] if 
+                (m.get("sender_email") == user1_email and m.get("recipient_email") == user2_email) or 
+                (m.get("sender_email") == user2_email and m.get("recipient_email") == user1_email)]
+        return sorted(msgs, key=lambda x: x["sent_at"])
+        
+    sb = get_supabase()
+    res = sb.table("messages").select("*").or_(
+        f"and(sender_email.eq.{user1_email},recipient_email.eq.{user2_email}),and(sender_email.eq.{user2_email},recipient_email.eq.{user1_email})"
+    ).order("sent_at", desc=False).execute()
+    return res.data or []
+
+def insert_conversation_message(sender_email: str, recipient_email: str, content: str) -> dict:
+    new_msg = {
+        "id": str(uuid.uuid4()),
+        "sender_email": sender_email,
+        "recipient_email": recipient_email,
+        "content": content,
+        "sent_at": datetime.utcnow().isoformat(),
+        "read": False
+    }
+    if _use_in_memory:
+        if "messages" not in _in_memory_db:
+            _in_memory_db["messages"] = []
+        _in_memory_db["messages"].append(new_msg)
+        return new_msg
+        
+    sb = get_supabase()
+    res = sb.table("messages").insert(new_msg).execute()
+    return res.data[0] if res.data else {}
+
+# ── Messages Helpers ──
+def get_all_messages() -> list:
+    if _use_in_memory:
+        return _in_memory_db["messages"]
+    sb = get_supabase()
+    res = sb.table("messages").select("*").execute()
+    return res.data or []
+
+def insert_message(message: dict) -> dict:
+    if _use_in_memory:
+        message["id"] = str(uuid.uuid4())
+        message["sent_at"] = datetime.utcnow().isoformat()
+        _in_memory_db["messages"].append(message)
+        return message
+    sb = get_supabase()
+    res = sb.table("messages").insert(message).execute()
+    return res.data[0] if res.data else {}
+
+
+# ── Sourcing Network Intelligence ──
+
+def get_sourcing_channels() -> list:
+    if _use_in_memory:
+        return _in_memory_db["sourcing_channels"]
+    sb = get_supabase()
+    try:
+        result = sb.table("sourcing_channels").select("*").execute()
+        return result.data or []
+    except Exception:
+        # Fallback if table doesn't exist in user's Supabase yet
+        return _in_memory_db["sourcing_channels"]
+
+def increment_channel_signal(channel_id: str):
+    if _use_in_memory:
+        for ch in _in_memory_db["sourcing_channels"]:
+            if ch["id"] == channel_id:
+                ch["signals_generated"] += 1
+                return
+    else:
+        try:
+            sb = get_supabase()
+            # Fetch current
+            res = sb.table("sourcing_channels").select("signals_generated").eq("id", channel_id).execute()
+            if res.data:
+                curr = res.data[0].get("signals_generated", 0)
+                sb.table("sourcing_channels").update({"signals_generated": curr + 1}).eq("id", channel_id).execute()
+        except Exception:
+            pass
+
+def register_deal_feedback(channel_id: str, startup_id: str, founder_id: str = None) -> dict:
+    if _use_in_memory:
+        deal = {
+            "id": str(uuid.uuid4()),
+            "channel_id": channel_id,
+            "startup_id": startup_id,
+            "founder_id": founder_id,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        _in_memory_db["deals"].append(deal)
+        for ch in _in_memory_db["sourcing_channels"]:
+            if ch["id"] == channel_id:
+                ch["deals_funded"] += 1
+                # Recalculate quality score: base 50, +20 per deal, -1 per empty signal
+                ch["quality_score"] = min(100, max(0, 50 + (ch["deals_funded"] * 20) - (ch["signals_generated"] * 1)))
+        return deal
+    else:
+        try:
+            sb = get_supabase()
+            deal = {
+                "channel_id": channel_id,
+                "startup_id": startup_id,
+                "founder_id": founder_id
+            }
+            res = sb.table("deals").insert(deal).execute()
+            
+            # Update channel stats
+            ch_res = sb.table("sourcing_channels").select("deals_funded", "signals_generated").eq("id", channel_id).execute()
             if ch_res.data:
                 ch_data = ch_res.data[0]
                 deals = ch_data.get("deals_funded", 0) + 1
@@ -785,47 +980,50 @@ def register_deal_feedback(channel_id: str, startup_id: str, founder_id: str = N
         except Exception:
             return {}
 
-import sqlite3
 import time
-from contextlib import contextmanager
 
-DB_PATH = "vc_brain_storage.db"
+# ── Founder Scores History (Supabase) ──
+# Table: founder_scores_history
+# Schema:
+#   id TEXT PRIMARY KEY
+#   founder_id TEXT
+#   base_score INTEGER
+#   confidence_margin INTEGER
+#   justification TEXT
+#   recorded_timestamp INTEGER
 
-@contextmanager
-def get_db_connection():
-    # Enforces absolute thread containment margins for handling high-frequency async workers
-    conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")  # Write-Ahead Logging for non-blocking concurrent reads/writes
-    
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS founder_scores_history (
-            id TEXT PRIMARY KEY,
-            founder_id TEXT,
-            base_score INTEGER,
-            confidence_margin INTEGER,
-            justification TEXT,
-            recorded_timestamp INTEGER
-        );
-    """)
-    
-    try:
-        yield conn
-    finally:
-        conn.close()
+def _ensure_supabase():
+    """Return the Supabase client; raises if not configured."""
+    client = get_supabase()
+    if client is None:
+        raise RuntimeError("Supabase is not configured. Set SUPABASE_URL and SUPABASE_KEY.")
+    return client
 
 def append_historical_founder_score(founder_id: str, base_score: int, margin: int, rationale: str):
-    query = """
-        INSERT INTO founder_scores_history (id, founder_id, base_score, confidence_margin, justification, recorded_timestamp)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """
-    with get_db_connection() as conn:
-        with conn:
-            conn.execute(query, (
-                str(uuid.uuid4()),  # Guarantee zero primary key collisions across execution frames
-                founder_id,
-                base_score,
-                margin,
-                rationale,
-                int(time.time())
-            ))
+    """Insert a historical founder score record into Supabase."""
+    try:
+        client = _ensure_supabase()
+        client.table("founder_scores_history").insert({
+            "id": str(uuid.uuid4()),
+            "founder_id": founder_id,
+            "base_score": base_score,
+            "confidence_margin": margin,
+            "justification": rationale,
+            "recorded_timestamp": int(time.time()),
+        }).execute()
+    except Exception as e:
+        print(f"[db] Failed to append founder score history: {e}")
+
+def get_historical_founder_scores(founder_id: str) -> list:
+    """Fetch all historical score records for a founder from Supabase."""
+    try:
+        client = _ensure_supabase()
+        res = client.table("founder_scores_history") \
+            .select("*") \
+            .eq("founder_id", founder_id) \
+            .order("recorded_timestamp", desc=True) \
+            .execute()
+        return res.data or []
+    except Exception as e:
+        print(f"[db] Failed to fetch founder score history: {e}")
+        return []

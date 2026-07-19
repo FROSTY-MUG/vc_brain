@@ -28,7 +28,7 @@ export const StartMenu = () => {
         </div>
         <div>
           <h2 className="text-xl font-semibold text-white tracking-tight">Conviction</h2>
-          <p className="text-xs text-white/50">The VC Brain OS</p>
+          <p className="text-xs text-white/50">Cognis</p>
         </div>
       </div>
 

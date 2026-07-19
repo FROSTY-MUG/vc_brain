@@ -39,7 +39,7 @@ export default function AgentHubApp() {
 
   const fetchRealLogs = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/applications/");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/py-api/applications/`);
       if (res.ok) {
         const apps = await res.json();
         let allLogs: AgentLog[] = [];
@@ -80,7 +80,7 @@ export default function AgentHubApp() {
     setRunningAgents(prev => new Set(prev).add(agentId));
     try {
       if (agentId === "sourcing") {
-        await fetch("http://localhost:8000/api/sourcing/run", { method: "POST" }).catch(() => {});
+        await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/py-api/sourcing/run`, { method: "POST" }).catch(() => {});
       }
     } finally {
       setTimeout(() => {

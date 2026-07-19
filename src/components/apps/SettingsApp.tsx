@@ -230,12 +230,12 @@ export default function SettingsApp() {
           <>
             <div>
               <h2 className="font-bold text-base">About</h2>
-              <p className="text-xs text-white/35 mt-0.5">VC Brain system information.</p>
+              <p className="text-xs text-white/35 mt-0.5">Cognis system information.</p>
             </div>
 
             <div className="divide-y divide-white/5">
               {[
-                ["App",        "VC Brain"],
+                ["App",        "Cognis"],
                 ["Version",    "0.1.0 · Demo Build"],
                 ["Framework",  "Next.js 16"],
                 ["Runtime",    "React 19"],
@@ -250,7 +250,7 @@ export default function SettingsApp() {
 
             <div className="p-4 bg-white/3 border border-white/8 rounded-xl">
               <p className="text-xs text-white/50 leading-relaxed">
-                VC Brain connects Indian founders and investors for fast, AI-assisted dealflow. All demo data is fictional but realistic.
+                Cognis connects Indian founders and investors for fast, AI-assisted dealflow. All demo data is fictional but realistic.
               </p>
             </div>
           </>

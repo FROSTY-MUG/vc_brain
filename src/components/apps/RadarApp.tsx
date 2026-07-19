@@ -127,7 +127,7 @@ function RadarAppInner({ userRole }: { userRole: 'investor' | 'founder' }) {
       {/* Top Banner Status Bar */}
       <div className={`flex justify-between items-center mb-6 border-b ${colors.border} pb-4 relative z-20`}>
         <div>
-          <h1 className={`text-xl font-bold font-mono tracking-tight ${colors.text}`}>VC BRAIN // CORE RADAR FUNNEL</h1>
+          <h1 className={`text-xl font-bold font-mono tracking-tight ${colors.text}`}>COGNIS // CORE RADAR FUNNEL</h1>
           <p className={`text-xs ${colors.mutedText}`}>Ultra-low latency parallel agent pipelines and live scrapers</p>
         </div>
         <div className="flex items-center gap-2">

@@ -27,11 +27,7 @@ export const InvestorDesktop = () => {
 
   return (
     <div className="w-full h-screen overflow-hidden relative text-white bg-black select-none">
-      {/* Subtle grid texture */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.03]"
-        style={{ backgroundImage: "linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)", backgroundSize: "40px 40px" }}
-      />
+
 
       {/* Top ticker */}
       <div className="absolute top-0 left-0 right-0 h-7 bg-black border-b border-white/8 flex items-center overflow-hidden z-10">
@@ -53,7 +49,7 @@ export const InvestorDesktop = () => {
           <div className="flex items-center gap-4 mb-2 relative">
             <DollarSign size={40} className="text-emerald-500/40 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]" />
             <span className="text-[72px] font-black tracking-tighter bg-gradient-to-b from-emerald-300 via-emerald-500 to-green-700 bg-clip-text text-transparent opacity-40 select-none drop-shadow-[0_4px_20px_rgba(16,185,129,0.2)]">
-              VC BRAIN
+              COGNIS
             </span>
             <DollarSign size={40} className="text-emerald-500/40 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]" />
           </div>

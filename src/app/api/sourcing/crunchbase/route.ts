@@ -8,7 +8,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ results: [], count: 0 });
     }
     
-    const res = await fetch(`http://localhost:8000/api/sourcing/crunchbase/autocomplete?query=${encodeURIComponent(query)}`);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/py-api/sourcing/crunchbase/autocomplete?query=${encodeURIComponent(query)}`);
     const data = await res.json();
     return NextResponse.json(data);
   } catch (error) {

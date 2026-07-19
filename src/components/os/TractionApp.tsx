@@ -28,7 +28,7 @@ interface ApplicationScore {
   founder_trend: string;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 // Uses DEMO_KPI_CARDS and DEMO_PIPELINE as fallback
 
@@ -71,7 +71,7 @@ export default function TractionApp() {
   const refresh = async () => {
     setLoading(true);
     try {
-      const p1 = fetch(`${API}/api/applications/`).then(r => r.ok ? r.json() : null).catch(() => null);
+      const p1 = fetch(`${API}/py-api/applications/`).then(r => r.ok ? r.json() : null).catch(() => null);
       const p2 = fetch('/api/kpis').then(r => r.ok ? r.json() : null).catch(() => null);
       
       const [apps, kpisData] = await Promise.all([p1, p2]);

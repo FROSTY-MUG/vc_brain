@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const res = await fetch(`http://localhost:8000/api/scoring/scores/${id}`);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/py-api/scoring/scores/${id}`);
     const data = await res.json();
     return NextResponse.json(data);
   } catch (error) {
@@ -15,7 +15,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const { id } = await params;
     const body = await req.json();
-    const res = await fetch(`http://localhost:8000/api/scoring/screen/${id}`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/py-api/scoring/screen/${id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

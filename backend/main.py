@@ -25,27 +25,32 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://vc-brain-seven.vercel.app",
+        "https://vc-brain.vercel.app",
+        "https://vc-brain-backend-production-0edd.up.railway.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Register routes
-app.include_router(applications_router, prefix="/api/applications", tags=["Applications"])
-app.include_router(founders_router,     prefix="/api/founders",     tags=["Founders"])
-app.include_router(scoring_router,      prefix="/api/scoring",      tags=["Scoring"])
-app.include_router(memo_router,         prefix="/api/memo",         tags=["Memo"])
-app.include_router(thesis_router,       prefix="/api/thesis",       tags=["Thesis"])
-app.include_router(sourcing_router,     prefix="/api/sourcing",     tags=["Sourcing"])
-app.include_router(search_router,       prefix="/api/search",       tags=["Search"])
-app.include_router(messages_router,     prefix="/api/messages",     tags=["Messages"])
-app.include_router(collab_router,       prefix="/api/collab",       tags=["Collab"])
-app.include_router(investors_router,    prefix="/api/investors",    tags=["Investors"])
-app.include_router(kpis_router,         prefix="/api/kpis",         tags=["KPIs"])
-app.include_router(profile_router,      prefix="/api/profile",      tags=["Profile"])
+app.include_router(applications_router, prefix="/py-api/applications", tags=["Applications"])
+app.include_router(founders_router,     prefix="/py-api/founders",     tags=["Founders"])
+app.include_router(scoring_router,      prefix="/py-api/scoring",      tags=["Scoring"])
+app.include_router(memo_router,         prefix="/py-api/memo",         tags=["Memo"])
+app.include_router(thesis_router,       prefix="/py-api/thesis",       tags=["Thesis"])
+app.include_router(sourcing_router,     prefix="/py-api/sourcing",     tags=["Sourcing"])
+app.include_router(search_router,       prefix="/py-api/search",       tags=["Search"])
+app.include_router(messages_router,     prefix="/py-api/messages",     tags=["Messages"])
+app.include_router(collab_router,       prefix="/py-api/collab",       tags=["Collab"])
+app.include_router(investors_router,    prefix="/py-api/investors",    tags=["Investors"])
+app.include_router(kpis_router,         prefix="/py-api/kpis",         tags=["KPIs"])
+app.include_router(profile_router,      prefix="/py-api/profile",      tags=["Profile"])
 app.include_router(realtime_router)
 
-@app.get("/api/health")
+@app.get("/py-api/health")
 async def health():
     return {"status": "ok", "product": "Conviction VC Brain"}

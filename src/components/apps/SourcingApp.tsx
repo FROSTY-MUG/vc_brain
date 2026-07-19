@@ -19,7 +19,7 @@ interface OutboundSignal {
   founder_id?: string;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 const SOURCE_ICONS: Record<string, React.ElementType> = {
   github: GitFork,
@@ -81,7 +81,7 @@ export default function SourcingApp() {
       setSignals(DEMO_SIGNALS as OutboundSignal[]);
     }
     // Try live data
-    fetch(`${API}/api/sourcing/outbound/signals`)
+    fetch(`${API}/py-api/sourcing/outbound/signals`)
       .then(r => r.json())
       .then(data => {
         const list = data?.signals || data;
@@ -96,12 +96,12 @@ export default function SourcingApp() {
   const handleScan = async () => {
     setScanning(true);
     try {
-      await fetch(`${API}/api/sourcing/outbound/scan`, {
+      await fetch(`${API}/py-api/sourcing/outbound/scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source: "all" })
       }).catch(() => {});
-      const r = await fetch(`${API}/api/sourcing/outbound/signals`).catch(() => null);
+      const r = await fetch(`${API}/py-api/sourcing/outbound/signals`).catch(() => null);
       if (r?.ok) {
         const data = await r.json();
         const list = data?.signals || data;

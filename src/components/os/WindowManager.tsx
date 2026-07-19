@@ -11,7 +11,7 @@ import ThesisApp from "../apps/ThesisApp";
 import MessagesApp from "../apps/MessagesApp";
 import InvestorSearchApp from "../apps/InvestorSearchApp";
 import StartupCollabApp from "../apps/StartupCollabApp";
-import TractionApp from "../apps/TractionApp";
+import TractionApp from "../os/TractionApp";
 import AgentHubApp from "../apps/AgentHubApp";
 import PitchDeckApp from "../apps/PitchDeckApp";
 import SettingsApp from "../apps/SettingsApp";
@@ -33,7 +33,7 @@ export const WindowManager = () => {
       case "sourcing":
         return <SourcingApp />;
       case "radar":
-        return <RadarApp />;
+        return <RadarApp userRole="investor" />;
       case "memo":
         return <MemoApp />;
       case "agents":
@@ -53,7 +53,7 @@ export const WindowManager = () => {
       case "analytics":
         return <TractionApp />;
       case "market-radar":
-        return <RadarApp />; // Founders also see radar (founder market signals)
+        return <RadarApp userRole="founder" />; // Founders also see radar (founder market signals)
 
       default:
         return (

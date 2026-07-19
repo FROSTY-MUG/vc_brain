@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/py-api/(.*)",
+      "destination": "/api/py_index.py"
+    }
+  ]
+}

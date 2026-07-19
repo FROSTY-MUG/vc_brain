@@ -54,7 +54,7 @@ const SECTIONS: MemoSection[] = [
   { key: "recommendation", label: "Recommendation", icon: CheckCircle2, color: "text-white", required: true },
 ];
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 /* ─────────────────────────────────────────
    Helpers
@@ -524,7 +524,7 @@ export default function MemoApp() {
 
   // Load application list
   useEffect(() => {
-    fetch(`${API}/api/applications/`)
+    fetch(`${API}/py-api/applications/`)
       .then(r => r.json())
       .then((data: Application[]) => {
         setApplications(Array.isArray(data) ? data : []);
@@ -540,7 +540,7 @@ export default function MemoApp() {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch(`${API}/api/memo/${id}`);
+      const r = await fetch(`${API}/py-api/memo/${id}`);
       if (!r.ok) throw new Error("No memo yet");
       const data = await r.json();
       const content = data?.content_json || data;
@@ -561,7 +561,7 @@ export default function MemoApp() {
     if (!selectedId) return;
     setGenerating(true);
     try {
-      const r = await fetch(`${API}/api/memo/generate/${selectedId}`, { method: "POST" });
+      const r = await fetch(`${API}/py-api/memo/generate/${selectedId}`, { method: "POST" });
       const data = await r.json();
       const content = data?.memo?.content_json || data?.memo;
       if (content) setMemo(typeof content === "string" ? JSON.parse(content) : content);

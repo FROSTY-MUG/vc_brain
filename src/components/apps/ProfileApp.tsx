@@ -74,7 +74,7 @@ export default function ProfileApp() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
         if (email) {
           const res = await fetch(`${apiUrl}/api/thesis/${email}`);
           if (res.ok) {
@@ -132,7 +132,7 @@ export default function ProfileApp() {
     setTimeout(() => setSaved(false), 2500);
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
       await fetch(`${apiUrl}/api/thesis`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

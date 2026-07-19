@@ -95,7 +95,7 @@ export const Onboarding = ({ onComplete }: OnboardingProps) => {
                 <Brain className="w-8 h-8 text-gold-400" />
               </div>
             </div>
-            <h2 className="text-2xl font-black text-white tracking-tight mb-2">Welcome to VC Brain</h2>
+            <h2 className="text-2xl font-black text-white tracking-tight mb-2">Welcome to Cognis</h2>
             <p className="text-white/50 text-xs mb-8">Choose your role to initialize your space.</p>
 
             <div className="grid grid-cols-2 gap-4 w-full mb-8">

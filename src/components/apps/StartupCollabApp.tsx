@@ -42,7 +42,7 @@ interface CollabPost {
   stars?: number;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const CACHE_KEY = "collab_cache_v2";
 
 export default function StartupCollabApp() {
@@ -70,7 +70,7 @@ export default function StartupCollabApp() {
 
   const fetchPosts = async () => {
     try {
-      const r = await fetch(`${API}/api/collab/`);
+      const r = await fetch(`${API}/py-api/collab/`);
       if (r.ok) {
         const data = await r.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -93,7 +93,7 @@ export default function StartupCollabApp() {
   const handleDiscover = async () => {
     setRefreshing(true);
     try {
-      await fetch(`${API}/api/collab/discover`);
+      await fetch(`${API}/py-api/collab/discover`);
       await fetchPosts();
     } finally {
       setRefreshing(false);
@@ -131,7 +131,7 @@ export default function StartupCollabApp() {
     setView("browse");
     setTimeout(() => setPosted(false), 3000);
     // Also persist to backend
-    fetch(`${API}/api/collab/`, {
+    fetch(`${API}/py-api/collab/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...newPost, role: "founder", type: newPost.need, content: newPost.description }),
