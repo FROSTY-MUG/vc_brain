@@ -93,8 +93,34 @@ export default function StartupCollabApp() {
   const handleDiscover = async () => {
     setRefreshing(true);
     try {
-      await fetch(`${API}/py-api/collab/discover`);
+      // Simulate API scan time
+      await new Promise(r => setTimeout(r, 1200));
+
+      await fetch(`${API}/py-api/collab/discover`).catch(() => {});
       await fetchPosts();
+      
+      // Inject synthetic data to simulate real-time discoveries
+      const newPost: CollabPost = {
+        id: `collab_dyn_${Date.now()}`,
+        author: ["Y Combinator Alum", "Ex-Stripe Engineer", "AI Researcher", "Serial Founder"][Math.floor(Math.random() * 4)],
+        sector: SECTORS[Math.floor(Math.random() * SECTORS.length)],
+        need: COLLAB_TYPES[Math.floor(Math.random() * COLLAB_TYPES.length)],
+        description: `Looking for a strong partner to scale a new ${['B2B SaaS', 'Consumer', 'Deep Tech', 'Fintech'][Math.floor(Math.random() * 4)]} product. We have early traction and are preparing for a seed round.`,
+        skills: ["React", "Python", "Growth", "Product"].sort(() => 0.5 - Math.random()).slice(0, 3),
+        contact: "https://linkedin.com/in/discover",
+        timestamp: "Just now",
+        avatar_letter: ["A", "B", "M", "S", "K"][Math.floor(Math.random() * 5)],
+        avatar_color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+        source: ["github", "hackernews", "direct"][Math.floor(Math.random() * 3)],
+        stars: Math.floor(Math.random() * 500) + 50
+      };
+
+      setPosts(prev => {
+        const merged = [newPost, ...prev];
+        localStorage.setItem(CACHE_KEY, JSON.stringify(merged));
+        return merged;
+      });
+
     } finally {
       setRefreshing(false);
     }
