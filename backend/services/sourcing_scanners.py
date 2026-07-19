@@ -18,10 +18,10 @@ DEVPOST_APIFY_TOKEN = os.getenv("DEVPOST_APIFY_TOKEN")
 ARXIV_QUERY_URL = "http://export.arxiv.org/api/query"
 CRUNCHBASE_AUTOCOMPLETE_URL = "https://api.crunchbase.com/v4/data/autocompletes"
 
-from openai import OpenAI
+from utils.llm import get_llm_client, get_model_name
 import base64
 
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+openai_client = get_llm_client()
 
 def scan_github(query: str = "llm-agent OR AI-infra") -> list:
     """
@@ -72,7 +72,7 @@ def scan_github(query: str = "llm-agent OR AI-infra") -> list:
                 if readme_content:
                     try:
                         llm_resp = openai_client.chat.completions.create(
-                            model="gpt-4o-mini",
+                            model=get_model_name("gpt-4o-mini"),
                             messages=[
                                 {"role": "system", "content": "You are a tech analyst. Write a concise 2-sentence brief about this project based on its README and description. Do not use markdown."},
                                 {"role": "user", "content": f"Description: {base_desc}\n\nREADME:\n{readme_content}"}

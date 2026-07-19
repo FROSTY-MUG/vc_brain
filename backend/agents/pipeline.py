@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from datetime import datetime
 
-from langchain_openai import ChatOpenAI
+from utils.llm import get_langchain_llm
 from langgraph.graph import StateGraph, START, END
 
 from agents.sourcer import research_founders_and_company
@@ -79,7 +79,7 @@ class ValidationList(BaseModel):
 def extract_node(state: AgentState) -> AgentState:
     raw_text = state.get("raw_text", "")
     _log_step(state, "Extractor", "Parsing pitch deck text", f"{len(raw_text)} chars ingested")
-    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    llm = get_langchain_llm(temperature=0)
     llm_with_tools = llm.with_structured_output(ExtractionResult)
     
     prompt = f"Extract the company name, founders, and key claims from this pitch deck text.\n\nText:\n{raw_text[:8000]}"
@@ -119,7 +119,7 @@ def validate_node(state: AgentState) -> AgentState:
         state["validated_claims"] = []
         return state
         
-    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    llm = get_langchain_llm(temperature=0)
     llm_with_tools = llm.with_structured_output(ValidationList)
     prompt = f"Validate claims against web research.\n\nClaims:\n{json.dumps(claims, indent=2)}\n\nResearch:\n{json.dumps(web_research, indent=2)[:4000]}"
     

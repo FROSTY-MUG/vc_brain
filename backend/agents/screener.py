@@ -6,11 +6,11 @@
 # =============================================
 import os
 import json
-from openai import OpenAI
+from utils.llm import get_llm_client, get_model_name
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+client = get_llm_client()
 
 SCREENER_PROMPT = """You are an elite VC screening AI. 
 Evaluate a startup opportunity based on pitch deck claims and web research.
@@ -57,7 +57,7 @@ def screen_opportunity(extraction_data: dict, research_data: dict) -> dict:
     Evaluates an opportunity across 3 independent axes.
     """
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=get_model_name("gpt-4o"),
         messages=[
             {"role": "system", "content": SCREENER_PROMPT},
             {"role": "user", "content": f"Extraction Data:\n{json.dumps(extraction_data, indent=2)}\n\nResearch Data:\n{json.dumps(research_data, indent=2)[:30000]}"}

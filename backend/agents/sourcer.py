@@ -8,12 +8,12 @@ import os
 import json
 import urllib.request
 import urllib.parse
-from openai import OpenAI
+from utils.llm import get_llm_client, get_model_name
 from tavily import TavilyClient
 from dotenv import load_dotenv
 
 load_dotenv()
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+openai_client = get_llm_client()
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY", "dummy"))
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -238,7 +238,7 @@ def conduct_web_research(company_name: str, founders: list) -> dict:
     """
     
     response = openai_client.chat.completions.create(
-        model="gpt-4o",
+        model=get_model_name("gpt-4o"),
         messages=[
             {"role": "system", "content": STRUCTURING_PROMPT},
             {"role": "user", "content": f"Company Name: {company_name}\n\nCompany Data:\n{json.dumps(raw_search_data)[:20000]}\n\nFounder Data:\n{json.dumps(founder_data)[:40000]}"}

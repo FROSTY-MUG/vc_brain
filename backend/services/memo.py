@@ -94,11 +94,16 @@ def generate_memo(
         if any(neg in signal.lower() for neg in ["crowded", "regulatory", "risk"]):
             threats.append(signal)
     
+    def format_swot(items, default="Insufficient data"):
+        if not items:
+            return [{"statement": default, "factors": [], "conflicts": []}]
+        return [{"statement": item, "factors": ["Rule-based extraction"], "conflicts": []} for item in items]
+
     memo["swot"] = {
-        "strengths": strengths or ["Insufficient data"],
-        "weaknesses": weaknesses or ["Insufficient data"],
-        "opportunities": opportunities or ["Insufficient data"],
-        "threats": threats or ["Insufficient data"],
+        "strengths": format_swot(strengths),
+        "weaknesses": format_swot(weaknesses),
+        "opportunities": format_swot(opportunities),
+        "threats": format_swot(threats),
     }
     
     # ── Traction & KPIs ──

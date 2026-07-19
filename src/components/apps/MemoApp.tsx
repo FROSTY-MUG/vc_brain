@@ -164,26 +164,69 @@ function SectionContent({ value }: { value: unknown }) {
 }
 
 /** Special renderer for the SWOT section */
-function SwotSection({ swot }: { swot: Record<string, string[]> }) {
+function SwotSection({ swot }: { swot: Record<string, any[]> }) {
   const quadrants = [
-    { key: "strengths", label: "Strengths", color: "text-green-400", bg: "bg-green-500/5 border-green-500/10" },
-    { key: "weaknesses", label: "Weaknesses", color: "text-red-400", bg: "bg-red-500/5 border-red-500/10" },
-    { key: "opportunities", label: "Opportunities", color: "text-blue-400", bg: "bg-blue-500/5 border-blue-500/10" },
-    { key: "threats", label: "Threats / Risks", color: "text-orange-400", bg: "bg-orange-500/5 border-orange-500/10" },
+    { key: "strengths", label: "Strengths", color: "text-green-400", bg: "bg-green-500/5 border-green-500/10", hoverBg: "hover:bg-green-500/10" },
+    { key: "weaknesses", label: "Weaknesses", color: "text-red-400", bg: "bg-red-500/5 border-red-500/10", hoverBg: "hover:bg-red-500/10" },
+    { key: "opportunities", label: "Opportunities", color: "text-blue-400", bg: "bg-blue-500/5 border-blue-500/10", hoverBg: "hover:bg-blue-500/10" },
+    { key: "threats", label: "Threats / Risks", color: "text-orange-400", bg: "bg-orange-500/5 border-orange-500/10", hoverBg: "hover:bg-orange-500/10" },
   ];
   return (
     <div className="grid grid-cols-2 gap-3">
-      {quadrants.map(({ key, label, color, bg }) => (
-        <div key={key} className={`${bg} border rounded-xl p-3`}>
-          <p className={`text-xs font-semibold uppercase tracking-wider ${color} mb-2`}>{label}</p>
+      {quadrants.map(({ key, label, color, bg, hoverBg }) => (
+        <div key={key} className={`${bg} border rounded-xl p-3 flex flex-col h-full`}>
+          <p className={`text-xs font-semibold uppercase tracking-wider ${color} mb-3`}>{label}</p>
           {Array.isArray(swot[key]) && swot[key].length > 0 ? (
-            <ul className="space-y-1.5">
-              {swot[key].map((item, i) => (
-                <li key={i} className="text-xs text-white/60 flex items-start gap-1.5">
-                  <span className={`mt-1 w-1 h-1 rounded-full shrink-0 ${color.replace("text-", "bg-")}`} />
-                  <CitedText text={item} />
-                </li>
-              ))}
+            <ul className="space-y-2 flex-1">
+              {swot[key].map((item, i) => {
+                const isObj = typeof item === 'object' && item !== null;
+                const statement = isObj ? item.statement : item;
+                const factors = isObj && Array.isArray(item.factors) ? item.factors : [];
+                const conflicts = isObj && Array.isArray(item.conflicts) ? item.conflicts : [];
+                const hasDetails = factors.length > 0 || conflicts.length > 0;
+                
+                return (
+                  <li key={i} className={`relative group rounded-md p-1.5 -ml-1.5 transition-colors ${hasDetails ? hoverBg : ''}`}>
+                    <div className="flex items-start gap-1.5">
+                      <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${color.replace("text-", "bg-")}`} />
+                      <div className="text-xs text-white/70 leading-relaxed flex-1">
+                        <CitedText text={statement} />
+                        {conflicts.length > 0 && (
+                          <AlertTriangle size={12} className="inline ml-1.5 text-red-400 mb-0.5" />
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Hover Tooltip */}
+                    {hasDetails && (
+                      <div className="absolute left-0 top-full mt-1 w-64 bg-[#1a1a1a] border border-white/10 rounded-lg p-3 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                        {factors.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Diligence Factors</p>
+                            <ul className="space-y-1">
+                              {factors.map((f: string, j: number) => (
+                                <li key={j} className="text-xs text-white/60">• {f}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {conflicts.length > 0 && (
+                          <div className={factors.length > 0 ? "pt-2 border-t border-white/5" : ""}>
+                            <p className="text-[10px] text-red-400/70 uppercase tracking-wider mb-1 flex items-center gap-1">
+                              <AlertTriangle size={10} /> Conflicting Findings
+                            </p>
+                            <ul className="space-y-1">
+                              {conflicts.map((c: string, j: number) => (
+                                <li key={j} className="text-xs text-red-300/80">• {c}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <NotDisclosedBadge />

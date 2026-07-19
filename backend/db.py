@@ -152,6 +152,21 @@ def _seed_in_memory_db():
         "application_id": a1_id,
         "content_json": {
             "summary": "Electron AI is building local agentic runtime with 4x performance. Highly technical founder (ex-Google Brain). Strong thesis alignment.",
+            "swot": {
+                "strengths": [
+                    {"statement": "Exceptional technical founder with domain expertise", "factors": ["Ex-Google Brain", "10+ years in AI infra"], "conflicts": []},
+                    {"statement": "Clear product differentiation in edge AI", "factors": ["4x performance claims", "Local runtime architecture"], "conflicts": []}
+                ],
+                "weaknesses": [
+                    {"statement": "Pre-revenue with no current traction", "factors": ["Zero revenue claims", "Product still in beta"], "conflicts": ["Founder claims fast execution velocity but product is delayed"]}
+                ],
+                "opportunities": [
+                    {"statement": "Massive tailwinds in local AI computing", "factors": ["Increasing privacy concerns", "Hardware accelerating local inference"], "conflicts": []}
+                ],
+                "threats": [
+                    {"statement": "Highly competitive market", "factors": ["OpenAI and Meta entering edge space", "Well-funded competitors"], "conflicts": []}
+                ]
+            },
             "recommendation": {
                 "action": "diligence",
                 "reason": "Outstanding technical qualifications and clear product differentiation in the hot Edge AI runtime space."

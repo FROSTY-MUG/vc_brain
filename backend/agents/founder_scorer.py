@@ -6,11 +6,11 @@
 # =============================================
 import os
 import json
-from openai import OpenAI
+from utils.llm import get_llm_client, get_model_name
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+client = get_llm_client()
 
 FOUNDER_SCORE_PROMPT = """You are a VC AI. Evaluate a founder's raw track record (from web research) and generate a persistent 'Founder Score'.
 
@@ -40,7 +40,7 @@ def score_founder(founder_research: dict) -> dict:
     Evaluates a founder and returns the persistent founder score metrics.
     """
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=get_model_name("gpt-4o"),
         messages=[
             {"role": "system", "content": FOUNDER_SCORE_PROMPT},
             {"role": "user", "content": f"Founder Data:\n{json.dumps(founder_research, indent=2)}"}

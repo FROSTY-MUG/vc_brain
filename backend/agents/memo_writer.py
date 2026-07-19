@@ -14,11 +14,11 @@
 # =============================================
 import os
 import json
-from openai import OpenAI
+from utils.llm import get_llm_client, get_model_name
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+client = get_llm_client()
 
 MEMO_PROMPT = """You are a top-tier VC Associate at a $100M early-stage fund.
 Write a complete, evidence-backed investment memo following Appendix 1 standards.
@@ -54,7 +54,10 @@ REQUIRED SECTIONS (output as JSON):
    defensibility, expansion path. Each bullet must cite evidence.
 
 3. swot — Object with: strengths[], weaknesses[], opportunities[], threats[].
-   Each as short, evidence-backed bullet strings. Never generic.
+   Instead of simple strings, each array must contain objects with:
+   - statement: short, evidence-backed bullet string. Never generic.
+   - factors: array of strings explaining the key due diligence factors that led to this (e.g., "Founder background", "Market growth")
+   - conflicts: array of strings explicitly detailing if any due diligence factors conflict regarding this point. Empty array if none.
 
 4. team_and_history — Founder background, exec team pedigree, company timeline
    from founding to today. Address any red flags (e.g. single-founder) explicitly.
@@ -108,7 +111,7 @@ def generate_memo(extraction: dict, research: dict, validation: dict, screening:
     """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model=get_model_name("gpt-4o"),
             messages=[
                 {"role": "system", "content": MEMO_PROMPT},
                 {
@@ -136,13 +139,27 @@ def generate_memo(extraction: dict, research: dict, validation: dict, screening:
         return memo
 
     except json.JSONDecodeError as e:
+        error_swot = {
+            "strengths": [{"statement": "Memo generation failed", "factors": [], "conflicts": []}],
+            "weaknesses": [{"statement": "Memo generation failed", "factors": [], "conflicts": []}],
+            "opportunities": [{"statement": "Memo generation failed", "factors": [], "conflicts": []}],
+            "threats": [{"statement": "Memo generation failed", "factors": [], "conflicts": []}]
+        }
         return {
             "error": f"Failed to parse memo JSON: {e}",
             "raw": result_text if 'result_text' in locals() else "",
+            "swot": error_swot,
             "recommendation": {"action": "diligence", "confidence": "LOW", "reasoning": "Memo generation failed — manual review required.", "open_questions": []}
         }
     except Exception as e:
+        error_swot = {
+            "strengths": [{"statement": f"Error: {str(e)}", "factors": [], "conflicts": []}],
+            "weaknesses": [{"statement": f"Error: {str(e)}", "factors": [], "conflicts": []}],
+            "opportunities": [{"statement": f"Error: {str(e)}", "factors": [], "conflicts": []}],
+            "threats": [{"statement": f"Error: {str(e)}", "factors": [], "conflicts": []}]
+        }
         return {
             "error": f"Memo generation failed: {str(e)}",
+            "swot": error_swot,
             "recommendation": {"action": "diligence", "confidence": "LOW", "reasoning": "Memo generation failed — manual review required.", "open_questions": []}
         }

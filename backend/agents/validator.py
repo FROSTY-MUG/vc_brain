@@ -6,11 +6,11 @@
 # =============================================
 import os
 import json
-from openai import OpenAI
+from utils.llm import get_llm_client, get_model_name
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+client = get_llm_client()
 
 VALIDATOR_PROMPT = """You are a VC diligence AI. Your job is to calculate a 'Trust Score' for claims made in a pitch deck by comparing them to independent web research.
 
@@ -49,7 +49,7 @@ def validate_claims(claims: list, research_data: dict) -> dict:
         return {}
         
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=get_model_name("gpt-4o"),
         messages=[
             {"role": "system", "content": VALIDATOR_PROMPT},
             {"role": "user", "content": f"Claims:\n{json.dumps(claims, indent=2)}\n\nResearch Data:\n{json.dumps(research_data, indent=2)[:30000]}"}

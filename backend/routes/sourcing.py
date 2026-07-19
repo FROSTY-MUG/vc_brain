@@ -3,7 +3,7 @@
 # =============================================
 import os
 from fastapi import APIRouter, HTTPException, Query
-from openai import OpenAI
+from utils.llm import get_llm_client, get_model_name
 import db
 from services.sourcing_scanners import (
     scan_github,
@@ -15,8 +15,7 @@ from services.sourcing_scanners import (
 
 router = APIRouter()
 
-# Initialize OpenAI client
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+openai_client = get_llm_client()
 
 @router.get("/outbound/signals")
 async def get_outbound_signals():
@@ -194,7 +193,7 @@ async def create_outreach_draft(data: dict):
     
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model=get_model_name("gpt-4o"),
             messages=[
                 {"role": "system", "content": "You are a top-tier venture capitalist specializing in technical developer outreach."},
                 {"role": "user", "content": prompt}

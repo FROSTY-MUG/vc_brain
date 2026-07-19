@@ -6,11 +6,11 @@
 # =============================================
 import os
 import json
-from openai import OpenAI
+from utils.llm import get_llm_client, get_model_name
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+client = get_llm_client()
 
 EXTRACTION_PROMPT = """You are a venture capital analyst AI. You have been given the raw text extracted from a startup's pitch deck.
 
@@ -61,7 +61,7 @@ def extract_claims(raw_text: str) -> dict:
     Takes raw PDF text and returns structured extraction via GPT-4o.
     """
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=get_model_name("gpt-4o"),
         messages=[
             {"role": "system", "content": EXTRACTION_PROMPT},
             {"role": "user", "content": f"Here is the pitch deck text:\n\n{raw_text[:12000]}"}
