@@ -9,14 +9,14 @@ router = APIRouter()
 # In-memory store for hackathon demo jobs status only
 _jobs = {} # store background jobs state
 
-def process_application_background(app_id: str, raw_text: str):
+def process_application_background(app_id: str, raw_text: str, founder_links: Optional[dict] = None):
     """Runs the LangGraph pipeline in the background."""
     try:
         _jobs[app_id] = "Running LLM extraction..."
         print(f"[{app_id}] Starting LangGraph pipeline")
-        
+
         # This will call GPT-4o and Tavily, and write to DB
-        result = run_application_pipeline(raw_text, app_id)
+        result = run_application_pipeline(raw_text, app_id, founder_links=founder_links)
         
         _jobs[app_id] = "Completed"
         print(f"[{app_id}] Pipeline completed")
@@ -31,6 +31,9 @@ async def upload_application(
     background_tasks: BackgroundTasks,
     company_name: str = Form(...),
     deck: UploadFile = File(...),
+    founder_name: Optional[str] = Form(None),
+    linkedin_url: Optional[str] = Form(None),
+    github_url: Optional[str] = Form(None),
 ):
     """
     Inbound application endpoint.
@@ -45,8 +48,11 @@ async def upload_application(
     startup_id = startup.get("id")
     
     # We create a placeholder founder, the extraction will enrich it later
-    # For now just use the startup name as a placeholder founder name
-    founder = db.insert_founder(f"Founder of {company_name}")
+    founder = db.insert_founder(
+        founder_name or f"Founder of {company_name}",
+        linkedin_url=linkedin_url or "",
+        github_url=github_url or "",
+    )
     founder_id = founder.get("id")
     
     db.link_founder_startup(founder_id, startup_id)
@@ -57,7 +63,8 @@ async def upload_application(
     _jobs[app_id] = "Pending"
     
     # Run the expensive LangGraph extraction & search in the background
-    background_tasks.add_task(process_application_background, app_id, raw_text)
+    founder_links = {"name": founder_name, "linkedin_url": linkedin_url, "github_url": github_url}
+    background_tasks.add_task(process_application_background, app_id, raw_text, founder_links)
     
     return {
         "status": "accepted",

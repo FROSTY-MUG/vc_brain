@@ -8,12 +8,12 @@ import os
 import json
 import urllib.request
 import urllib.parse
-from openai import OpenAI
+from utils.llm import get_llm_client, get_model_name
 from tavily import TavilyClient
 from dotenv import load_dotenv
 
 load_dotenv()
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+openai_client = get_llm_client()
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY", "dummy"))
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -174,26 +174,36 @@ def conduct_web_research(company_name: str, founders: list) -> dict:
         if not name:
             continue
             
-        # If we can guess github username from name (very naive, usually we'd search first)
-        # We will use Tavily to find the github URL, then extract username
-        gh_search = _run_search(f"{name} {company_name} github profile")
-        
-        # Naive username guess for API fetching
-        gh_username = name.replace(" ", "").lower()
+        # Prefer the URLs the founder supplied in the application form;
+        # only fall back to naive name-based guessing when absent.
+        given_gh_url = (founder.get("github_url") or "").strip() if isinstance(founder, dict) else ""
+        given_li_url = (founder.get("linkedin_url") or "").strip() if isinstance(founder, dict) else ""
+
+        if given_gh_url:
+            gh_username = given_gh_url.rstrip("/").split("/")[-1]
+            gh_search = _run_search(f"site:github.com/{gh_username}")
+        else:
+            # We will use Tavily to find the github URL, then extract username
+            gh_search = _run_search(f"{name} {company_name} github profile")
+            # Naive username guess for API fetching
+            gh_username = name.replace(" ", "").lower()
         real_gh_data = _fetch_github_user(gh_username)
-        
-        # For demo purposes, we guess a linkedin URL. In reality, it would be passed or searched.
-        guessed_li_url = f"https://www.linkedin.com/in/{gh_username}"
-        li_data = _fetch_linkedin_data_pb(guessed_li_url)
-        
+
+        li_url = given_li_url or f"https://www.linkedin.com/in/{name.replace(' ', '').lower()}"
+        li_data = _fetch_linkedin_data_pb(li_url)
+
         # Fallback to web search if PB fails or needs more context
         if not li_data:
-            li_data = _run_search(f"{name} {company_name} linkedin experience posts site:linkedin.com/in/")
+            if given_li_url:
+                li_data = _run_search(f"{given_li_url} {name} experience")
+            else:
+                li_data = _run_search(f"{name} {company_name} linkedin experience posts site:linkedin.com/in/")
             
         tw_data = _fetch_twitter_data(f"{name} {company_name}")
         
         founder_data.append({
             "name": name,
+            "profile_links_provided": bool(given_gh_url or given_li_url),
             "real_github_api_data": real_gh_data,
             "raw_github_search": gh_search,
             "raw_linkedin": li_data,
@@ -238,7 +248,7 @@ def conduct_web_research(company_name: str, founders: list) -> dict:
     """
     
     response = openai_client.chat.completions.create(
-        model="gpt-4o",
+        model=get_model_name("gpt-4o"),
         messages=[
             {"role": "system", "content": STRUCTURING_PROMPT},
             {"role": "user", "content": f"Company Name: {company_name}\n\nCompany Data:\n{json.dumps(raw_search_data)[:20000]}\n\nFounder Data:\n{json.dumps(founder_data)[:40000]}"}

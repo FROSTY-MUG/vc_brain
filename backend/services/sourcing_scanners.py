@@ -18,11 +18,11 @@ DEVPOST_APIFY_TOKEN = os.getenv("DEVPOST_APIFY_TOKEN")
 ARXIV_QUERY_URL = "http://export.arxiv.org/api/query"
 CRUNCHBASE_AUTOCOMPLETE_URL = "https://api.crunchbase.com/v4/data/autocompletes"
 
-from openai import OpenAI
+from utils.llm import get_llm_client, get_model_name
 from tavily import TavilyClient
 import base64
 
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+openai_client = get_llm_client()
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY", "dummy"))
 
 def scan_github(query: str = "llm-agent OR AI-infra") -> list:
@@ -74,7 +74,7 @@ def scan_github(query: str = "llm-agent OR AI-infra") -> list:
                 if readme_content:
                     try:
                         llm_resp = openai_client.chat.completions.create(
-                            model="gpt-4o-mini",
+                            model=get_model_name("gpt-4o-mini"),
                             messages=[
                                 {"role": "system", "content": "You are a tech analyst. Write a concise 2-sentence brief about this project based on its README and description. Do not use markdown."},
                                 {"role": "user", "content": f"Description: {base_desc}\n\nREADME:\n{readme_content}"}
@@ -100,6 +100,152 @@ def scan_github(query: str = "llm-agent OR AI-infra") -> list:
     except Exception as e:
         print(f"GitHub scan error: {e}")
     return signals
+
+def scan_github_embryonic(query: str = "AI OR LLM OR agent") -> list:
+    """
+    Embryonic tech spikes: repositories created within the last 14 days that
+    show unusual star velocity with only 1-2 contributors — side projects
+    months before a pitch deck exists.
+    """
+    signals = []
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+    }
+    if GITHUB_TOKEN:
+        headers["Authorization"] = f"token {GITHUB_TOKEN}"
+
+    date_str = (datetime.utcnow() - timedelta(days=14)).strftime("%Y-%m-%d")
+    full_query = f"{query} stars:>30 created:>{date_str}"
+    url = f"https://api.github.com/search/repositories?q={quote_plus(full_query)}&sort=stars&order=desc&per_page=10"
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code != 200:
+            print(f"GitHub embryonic scan failed with status {response.status_code}")
+            return signals
+        for item in response.json().get("items", []):
+            stars = item.get("stargazers_count", 0)
+            full_name = item.get("full_name", "")
+            created = datetime.strptime(item.get("created_at", "")[:10], "%Y-%m-%d")
+            age_days = max((datetime.utcnow() - created).days, 1)
+            velocity = stars / age_days
+            if velocity < 5:
+                continue
+
+            # Embryonic = 1-2 contributors only
+            n_contrib = 1
+            try:
+                c_resp = requests.get(
+                    f"https://api.github.com/repos/{full_name}/contributors?per_page=3",
+                    headers=headers, timeout=5
+                )
+                if c_resp.status_code == 200:
+                    n_contrib = len(c_resp.json())
+            except Exception:
+                pass
+            if n_contrib > 2:
+                continue
+
+            desc = item.get("description") or "No description provided."
+            signals.append({
+                "source": "github",
+                "signal_type": "embryonic_spike",
+                "title": full_name,
+                "description": f"{stars}★ in {age_days} days (~{velocity:.0f}/day) with only {n_contrib} contributor(s). {desc}"[:250],
+                "url": item.get("html_url", ""),
+                "strength": round(min(70 + velocity, 99.0), 1),
+                "founder_name": item.get("owner", {}).get("login", "")
+            })
+    except Exception as e:
+        print(f"GitHub embryonic scan error: {e}")
+    return signals
+
+def scan_huggingface() -> list:
+    """
+    Newly created Hugging Face Spaces gaining likes — founders testing raw
+    MVPs publicly before incorporating. Free public API, no key needed.
+    """
+    signals = []
+    try:
+        response = requests.get(
+            "https://huggingface.co/api/spaces?sort=trendingScore&direction=-1&limit=50&full=true",
+            timeout=10
+        )
+        if response.status_code != 200:
+            print(f"Hugging Face scan failed with status {response.status_code}")
+            return signals
+        cutoff = datetime.utcnow() - timedelta(days=21)
+        for space in response.json():
+            created_raw = space.get("createdAt") or space.get("created_at") or ""
+            try:
+                created = datetime.strptime(created_raw[:10], "%Y-%m-%d")
+            except ValueError:
+                continue
+            if created < cutoff:
+                continue
+            likes = space.get("likes", 0)
+            if likes < 5:
+                continue
+            space_id = space.get("id", "")
+            author = space.get("author") or space_id.split("/")[0]
+            age_days = max((datetime.utcnow() - created).days, 1)
+            signals.append({
+                "source": "huggingface",
+                "signal_type": "mvp_space",
+                "title": space_id,
+                "description": f"New HF Space: {likes} likes within {age_days} days of creation — public MVP test by '{author}'.",
+                "url": f"https://huggingface.co/spaces/{space_id}",
+                "strength": round(min(60 + likes / 4, 99.0), 1),
+                "founder_name": author
+            })
+            if len(signals) >= 5:
+                break
+    except Exception as e:
+        print(f"Hugging Face scan error: {e}")
+    return signals
+
+def scan_stealth() -> list:
+    """
+    Stealth breaks: senior people leaving elite companies with no listed next
+    role ("Stealth Startup", "Building something new").
+    NOTE: The production-grade path is a structured B2B people-data feed
+    (e.g. CrustData / Launch Gravity) that tracks daily title changes.
+    For the hackathon we surface publicly indexed stealth signals via Tavily.
+    """
+    signals = []
+    queries = [
+        'site:linkedin.com/in "stealth" ("ex-OpenAI" OR "ex-Stripe" OR "ex-Google" OR "ex-Nvidia" OR "ex-DeepMind")',
+        '"building something new" ("left OpenAI" OR "left Stripe" OR "left Google" OR "left Nvidia") founder',
+    ]
+    for q in queries:
+        try:
+            t_response = tavily_client.search(
+                query=q,
+                search_depth="advanced",
+                max_results=3,
+                include_raw_content=False
+            )
+            for r in t_response.get("results", []):
+                title = r.get("title", "").split("|")[0].split(" - ")[0].strip()
+                signals.append({
+                    "source": "stealth",
+                    "signal_type": "stealth_break",
+                    "title": title or "Stealth founder",
+                    "description": r.get("content", "")[:250],
+                    "url": r.get("url", ""),
+                    "strength": 82.0,
+                    "founder_name": title or "Unknown"
+                })
+        except Exception as e:
+            print(f"Tavily stealth search failed: {e}")
+    # De-duplicate by URL
+    seen, unique = set(), []
+    for s in signals:
+        if s["url"] not in seen:
+            seen.add(s["url"])
+            unique.append(s)
+    return unique
 
 def scan_arxiv(query: str = "all:electron") -> list:
     """

@@ -82,11 +82,18 @@ class MemoSection(BaseModel):
     data_status: str   # "available" | "partial" | "missing"
     citations: list[str]
 
+from typing import Optional, Union, Any
+
+class SwotItem(BaseModel):
+    statement: str
+    factors: list[str] = []
+    conflicts: list[str] = []
+
 class SWOTResponse(BaseModel):
-    strengths: list[str]
-    weaknesses: list[str]
-    opportunities: list[str]
-    threats: list[str]
+    strengths: list[Union[SwotItem, str, dict, Any]]
+    weaknesses: list[Union[SwotItem, str, dict, Any]]
+    opportunities: list[Union[SwotItem, str, dict, Any]]
+    threats: list[Union[SwotItem, str, dict, Any]]
 
 class TrustSummary(BaseModel):
     verified_claims: int

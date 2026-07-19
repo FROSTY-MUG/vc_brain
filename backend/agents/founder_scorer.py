@@ -6,11 +6,11 @@
 # =============================================
 import os
 import json
-from openai import OpenAI
+from utils.llm import get_llm_client, get_model_name
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
+client = get_llm_client()
 
 FOUNDER_SCORE_PROMPT = """You are a VC AI. Evaluate a founder's raw track record (from web research) and generate a persistent 'Founder Score'.
 
@@ -40,7 +40,7 @@ def score_founder(founder_research: dict) -> dict:
     Evaluates a founder and returns the persistent founder score metrics.
     """
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=get_model_name("gpt-4o"),
         messages=[
             {"role": "system", "content": FOUNDER_SCORE_PROMPT},
             {"role": "user", "content": f"Founder Data:\n{json.dumps(founder_research, indent=2)}"}
@@ -71,18 +71,25 @@ def score_founders(founders: list, research_data: dict) -> list:
         )
         try:
             score = score_founder(founder_research)
+            if "error" in score:
+                raise ValueError(score["error"])
+            score["scoring_status"] = "ok"
         except Exception as e:
+            # A failed LLM call is a data gap, not evidence of a first-time
+            # founder — never label it cold-start.
             print(f"Founder scoring failed for {name}: {e}")
             score = {
-                "overall_score": 50,
-                "execution_velocity": 50,
-                "domain_expertise": 50,
-                "resilience_history": 50,
-                "confidence": 0.5,
-                "data_completeness": 0.3,
-                "trend": "stable",
+                "overall_score": 0,
+                "execution_velocity": 0,
+                "domain_expertise": 0,
+                "resilience_history": 0,
+                "confidence": 0.0,
+                "data_completeness": 0.0,
+                "trend": "unknown",
                 "trend_delta": 0.0,
-                "is_cold_start": True
+                "is_cold_start": False,
+                "scoring_status": "failed",
+                "error": str(e),
             }
         score["name"] = name
         scores.append(score)

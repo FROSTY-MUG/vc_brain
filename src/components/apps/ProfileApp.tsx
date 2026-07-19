@@ -27,7 +27,7 @@ const ALL_SECTORS = [
   "BioTech", "Hardware", "Consumer"
 ];
 const ALL_STAGES = ["Pre-Seed", "Seed", "Series A"];
-const ALL_GEOS = ["Germany", "Europe", "USA", "DACH", "Global", "India", "Asia"];
+const ALL_GEOS = ["Global", "Asia", "Europe", "USA", "India", "Germany", "DACH"];
 
 const INITIAL_THESIS: ThesisConfig = {
   fund_name: "Maschmeyer Group VC",
@@ -48,11 +48,10 @@ function ToggleChip({
   return (
     <button
       onClick={onToggle}
-      className={`px-3 py-1.5 rounded-full text-xs border transition-all ${
-        active
-          ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
-          : "bg-white/5 border-white/10 text-white/30 hover:border-white/20 hover:text-white/50"
-      }`}
+      className={`px-3 py-1.5 rounded-full text-xs border transition-all ${active
+        ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
+        : "bg-white/5 border-white/10 text-white/30 hover:border-white/20 hover:text-white/50"
+        }`}
     >
       {active && <span className="mr-1">✓</span>}
       {label}
@@ -167,11 +166,10 @@ export default function ProfileApp() {
           {activeTab === "thesis" && (
             <button
               onClick={editing ? handleSave : () => setEditing(true)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors border ${
-                editing
-                  ? "bg-green-500/15 border-green-500/30 text-green-400"
-                  : "border-white/10 text-white/40 hover:text-white/70"
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors border ${editing
+                ? "bg-green-500/15 border-green-500/30 text-green-400"
+                : "border-white/10 text-white/40 hover:text-white/70"
+                }`}
             >
               {editing ? <><Save size={12} /> Save Thesis</> : <><Edit3 size={12} /> Edit</>}
             </button>
@@ -286,7 +284,7 @@ export default function ProfileApp() {
                 <div className="flex flex-wrap gap-1.5">
                   {ALL_SECTORS.map(s => (
                     <ToggleChip key={s} label={s} active={thesis.sectors.includes(s)}
-                      onToggle={editing ? () => toggleSector(s) : () => {}} />
+                      onToggle={editing ? () => toggleSector(s) : () => { }} />
                   ))}
                 </div>
               </div>
@@ -297,7 +295,7 @@ export default function ProfileApp() {
                 <div className="flex gap-1.5">
                   {ALL_STAGES.map(s => (
                     <ToggleChip key={s} label={s} active={thesis.stages.includes(s)}
-                      onToggle={editing ? () => toggleStage(s) : () => {}} />
+                      onToggle={editing ? () => toggleStage(s) : () => { }} />
                   ))}
                 </div>
               </div>
@@ -310,7 +308,7 @@ export default function ProfileApp() {
                 <div className="flex flex-wrap gap-1.5">
                   {ALL_GEOS.map(g => (
                     <ToggleChip key={g} label={g} active={thesis.geographies.includes(g)}
-                      onToggle={editing ? () => toggleGeo(g) : () => {}} />
+                      onToggle={editing ? () => toggleGeo(g) : () => { }} />
                   ))}
                 </div>
               </div>
@@ -349,11 +347,10 @@ export default function ProfileApp() {
                     <button
                       key={r}
                       onClick={() => editing && setThesis(t => ({ ...t, risk_appetite: r }))}
-                      className={`flex-1 py-2 rounded-lg text-xs border capitalize transition-colors ${
-                        thesis.risk_appetite === r
-                          ? "bg-amber-500/20 border-amber-500/30 text-amber-400"
-                          : "bg-white/5 border-white/10 text-white/30"
-                      }`}
+                      className={`flex-1 py-2 rounded-lg text-xs border capitalize transition-colors ${thesis.risk_appetite === r
+                        ? "bg-amber-500/20 border-amber-500/30 text-amber-400"
+                        : "bg-white/5 border-white/10 text-white/30"
+                        }`}
                     >
                       {r}
                     </button>
